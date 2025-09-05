@@ -3,9 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Admin — Create Product</title>
+  <title>Admin — Create Product (Diagnoser)</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- QR generator -->
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
@@ -14,6 +13,11 @@
       <div id="authBar"></div>
       <div id="roleBadge" class="px-2 py-1 rounded bg-slate-800/70">Role: —</div>
     </header>
+
+    <!-- Quick env readout -->
+    <div class="text-[11px] opacity-70">
+      <div>Storage bucket (from config): <code id="bucketName">—</code></div>
+    </div>
 
     <!-- Auth -->
     <section id="login" class="space-y-3">
@@ -42,7 +46,7 @@
             <div>
               <label class="text-xs opacity-70">Product ID (auto from name)</label>
               <input id="pid" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="auto-generated" required>
-              <div class="text-[11px] opacity-60 mt-1">We’ll make this from the name. You may tweak it if needed.</div>
+              <div class="text-[11px] opacity-60 mt-1">You may tweak it if needed.</div>
             </div>
             <button id="regenBtn" type="button" class="px-3 py-2 rounded bg-slate-800">Regenerate</button>
           </div>
@@ -58,12 +62,11 @@
             </div>
           </div>
 
-          <!-- Photo upload OR URL (upload wins) -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label class="text-xs opacity-70">Photo (upload)</label>
               <input id="photoFile" type="file" accept="image/*" class="w-full px-3 py-2 rounded bg-slate-800">
-              <div class="text-[11px] opacity-60 mt-1">Optional. One image per product (overwrite if re-created).</div>
+              <div class="text-[11px] opacity-60 mt-1">Optional. One image per product (overwrites existing).</div>
             </div>
             <div>
               <label class="text-xs opacity-70">Photo URL (optional)</label>
@@ -108,6 +111,13 @@
             Print the QR and place it above the pallet. Workers scan it to open the item page.
           </div>
         </div>
+
+        <!-- DEBUG PANEL -->
+        <div id="debugPanel" class="mt-4 rounded-xl bg-slate-900/60 p-3 text-xs">
+          <div class="font-semibold mb-1">Debug</div>
+          <pre id="debugLog" class="whitespace-pre-wrap"></pre>
+          <div id="errorBox" class="hidden mt-2 p-2 rounded bg-rose-900/30 text-rose-200"></div>
+        </div>
       </div>
     </section>
   </main>
@@ -145,14 +155,24 @@
     const adminPanel = $("adminPanel");
     const authBar = $("authBar");
     const roleBadge = $("roleBadge");
+    const bucketNameEl = $("bucketName"); bucketNameEl.textContent = firebaseConfig.storageBucket;
 
     const emailEl = $("email"), passEl = $("pass"), loginBtn = $("loginBtn");
     const nameEl = $("name"), pidEl = $("pid"), regenBtn = $("regenBtn");
     const qtyEl = $("quantity"), locEl = $("location");
     const photoFileEl = $("photoFile"), photoUrlEl = $("photoUrl");
-    const createBtn = $("createBtn"), prodForm = $("prodForm"), statusEl = $("status");
+    const prodForm = $("prodForm"), statusEl = $("status");
     const resultBox = $("result"), prodLink = $("prodLink"), qrCanvas = $("qrCanvas"), downloadQR = $("downloadQR");
     const previewImg = $("previewImg"), previewName = $("previewName"), previewLoc = $("previewLoc"), previewQty = $("previewQty"), previewPid = $("previewPid");
+    const debugLog = $("debugLog"), errorBox = $("errorBox");
+
+    function log(s){ debugLog.textContent += s + "\\n"; }
+    function showError(step, e){
+      const msg = (e && (e.message || e.code)) ? `${e.code || ''} ${e.message || ''}`.trim() : String(e);
+      errorBox.textContent = `Step: ${step} — ${msg}`;
+      errorBox.classList.remove("hidden");
+      console.error(step, e);
+    }
 
     let isAdmin = false;
 
@@ -167,24 +187,32 @@
       authBar.innerHTML = `Signed in as <b>${user.email}</b> — <button id="logout" class="underline">Sign out</button>`;
       document.getElementById("logout").onclick = () => signOut(auth);
 
-      const roleSnap = await get(ref(db, `roles/${user.uid}/role`));
-      const roleVal = roleSnap.val();
-      isAdmin = roleVal === "admin";
-      if (!isAdmin) {
-        roleBadge.textContent = `Role: ${roleVal || 'none'} (no admin)`;
-        roleBadge.className = "px-2 py-1 rounded bg-amber-700/30";
-        show(loginSec, false); show(adminPanel, false);
-        return;
+      try {
+        log("Checking role …");
+        const roleSnap = await get(ref(db, `roles/${user.uid}/role`));
+        const roleVal = roleSnap.val();
+        log(`Role value: ${roleVal}`);
+        isAdmin = roleVal === "admin";
+        if (!isAdmin) {
+          roleBadge.textContent = `Role: ${roleVal || 'none'} (no admin)`;
+          roleBadge.className = "px-2 py-1 rounded bg-amber-700/30";
+          toast("You must be admin to create products.");
+          show(loginSec, false); show(adminPanel, false);
+          return;
+        }
+        roleBadge.textContent = "Role: admin";
+        roleBadge.className = "px-2 py-1 rounded bg-sky-700/30";
+        show(loginSec, false); show(adminPanel, true);
+      } catch (e) {
+        showError("role-check", e);
       }
-      roleBadge.textContent = "Role: admin";
-      roleBadge.className = "px-2 py-1 rounded bg-sky-700/30";
-      show(loginSec, false); show(adminPanel, true);
     });
 
     loginBtn.onclick = async () => {
       try {
         await signInWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value.trim());
       } catch(e) {
+        showError("sign-in", e);
         toast(e.code || "Sign-in failed");
       }
     };
@@ -193,25 +221,23 @@
     function slugify(s){
       return (s || "")
         .toLowerCase()
-        .normalize('NFKD').replace(/[\u0300-\u036f]/g,'') // remove accents
-        .replace(/[^a-z0-9]+/g, '-')                     // non-alnum -> dash
-        .replace(/^-+|-+$/g, '')                         // trim dashes
-        .replace(/--+/g,'-')                             // collapse
-        .slice(0, 60);                                   // keep it short-ish
+        .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .replace(/--+/g,'-')
+        .slice(0, 60);
     }
 
     // Live PID suggestion as name changes
+    let pidTouched = false;
     nameEl.addEventListener('input', ()=>{
       const s = slugify(nameEl.value);
       if (!pidTouched) pidEl.value = s;
       refreshPreview();
     });
-    // Allow edits but keep “Regenerate” button
-    let pidTouched = false;
     pidEl.addEventListener('input', ()=>{ pidTouched = true; refreshPreview(); });
-    regenBtn.addEventListener('click', ()=>{ pidEl.value = slugify(nameEl.value); pidTouched = false; refreshPreview(); });
+    $("regenBtn").addEventListener('click', ()=>{ pidEl.value = slugify(nameEl.value); pidTouched = false; refreshPreview(); });
 
-    // Preview update
     function refreshPreview(){
       const name = nameEl.value.trim();
       const pid = pidEl.value.trim();
@@ -225,7 +251,6 @@
       if (url) previewImg.src = url;
     }
 
-    // Generate QR for inventory page
     function renderQR(link){
       QRCode.toCanvas(qrCanvas, link, { width: 256, margin: 1 }, (err)=>{ if(err) console.error(err); });
       prodLink.href = link; prodLink.textContent = link;
@@ -237,7 +262,6 @@
       };
     }
 
-    // Choose a unique pid (pid, pid-2, pid-3, …)
     async function uniquePid(base){
       let n = 0;
       while (n < 50) {
@@ -246,12 +270,16 @@
         if (!snap.exists()) return cand;
         n++;
       }
-      throw new Error('Could not find unique Product ID');
+      throw new Error('uniquePid: too many collisions');
     }
 
     prodForm.addEventListener("submit", async (e)=>{
       e.preventDefault();
-      if (!isAdmin) { toast("Admin only."); return; }
+      errorBox.classList.add("hidden");
+      statusEl.textContent = "Saving…";
+      log("Submit clicked");
+
+      if (!isAdmin) { showError("precheck", new Error("not admin")); statusEl.textContent = ""; return; }
 
       const name = nameEl.value.trim();
       const pidIn = (pidEl.value.trim() || slugify(name));
@@ -261,58 +289,59 @@
       const file = photoFileEl.files && photoFileEl.files[0] ? photoFileEl.files[0] : null;
       const urlIn = photoUrlEl.value.trim();
 
-      if (!name) { toast("Name is required."); return; }
-      statusEl.textContent = "Saving…";
+      if (!name) { showError("validation", new Error("Name required")); statusEl.textContent = ""; return; }
 
       try {
-        // 0) Ensure unique product ID
+        log("Choosing unique product ID …");
         const pid = await uniquePid(basePid);
+        pidEl.value = pid;
+        log(`ID selected: ${pid}`);
 
-        // 1) Upload image if provided (one image per product, overwrite path)
         let photoUrl = urlIn || "";
         if (file) {
-          const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-          const cleanExt = (['jpg','jpeg','png','webp'].includes(ext) ? ext : 'jpg');
-          const objectPath = `product_images/${pid}.${cleanExt}`;
-          const objectRef = sRef(storage, objectPath);
-          await uploadBytes(objectRef, file, { contentType: file.type || `image/${cleanExt}` });
-          photoUrl = await getDownloadURL(objectRef);
+          try {
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const cleanExt = (['jpg','jpeg','png','webp'].includes(ext) ? ext : 'jpg');
+            const objectPath = `product_images/${pid}.${cleanExt}`;
+            const objectRef = sRef(storage, objectPath);
+            log(`Uploading image to: ${objectPath}`);
+            await uploadBytes(objectRef, file, { contentType: file.type || `image/${cleanExt}` });
+            photoUrl = await getDownloadURL(objectRef);
+            log("Image uploaded, downloadURL obtained");
+          } catch (uploadErr) {
+            showError("storage-upload", uploadErr);
+            statusEl.textContent = "";
+            return;
+          }
+        } else {
+          log("No file chosen; using Photo URL (if any)");
         }
 
-        // 2) Create product in RTDB
-        const now = serverTimestamp();
-        await update(ref(db, `products/${pid}`), {
-          name, quantity: qty, location: loc,
-          photoUrl: photoUrl || null,
-          createdAt: now, createdBy: auth.currentUser.uid,
-          updatedAt: now, updatedBy: auth.currentUser.uid
-        });
+        try {
+          log("Writing product to Realtime Database …");
+          const now = serverTimestamp();
+          await update(ref(db, `products/${pid}`), {
+            name, quantity: qty, location: loc,
+            photoUrl: photoUrl || null,
+            createdAt: now, createdBy: auth.currentUser.uid,
+            updatedAt: now, updatedBy: auth.currentUser.uid
+          });
+          log("DB write success");
+        } catch (dbErr) {
+          showError("db-write", dbErr);
+          statusEl.textContent = "";
+          return;
+        }
 
-        // 3) Show result + QR (point to inventory.html?id=pid)
         const base = `${location.origin}${location.pathname}`.replace(/admin\.html.*$/,'');
         const itemUrl = `${base}inventory.html?id=${encodeURIComponent(pid)}`;
-        pidEl.value = pid; // show final pid (with suffix if added)
-        refreshPreview();
         renderQR(itemUrl);
+        refreshPreview();
         show(resultBox, true);
         statusEl.textContent = "Saved.";
-      } catch (err) {
-        console.error(err);
+      } catch (e2) {
+        showError("outer-submit", e2);
         statusEl.textContent = "";
-        toast(err.message || "Save failed. Check permissions and network.");
-      }
-    });
-
-    // Live preview on inputs
-    [nameEl, qtyEl, locEl, photoUrlEl].forEach(el=>{
-      el.addEventListener('input', refreshPreview);
-    });
-    photoFileEl.addEventListener('change', ()=>{
-      const f = photoFileEl.files && photoFileEl.files[0];
-      if (f) {
-        const reader = new FileReader();
-        reader.onload = e=> previewImg.src = e.target.result;
-        reader.readAsDataURL(f);
       }
     });
   </script>
