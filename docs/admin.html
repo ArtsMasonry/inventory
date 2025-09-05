@@ -31,22 +31,20 @@
     <section id="adminPanel" class="hidden">
       <div class="rounded-2xl bg-slate-900/60 p-4">
         <h2 class="text-lg font-semibold mb-3">Create a New Product</h2>
-        <form id="prodForm" class="space-y-3">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label class="text-xs opacity-70">Product ID (URL id)</label>
-              <input id="pid" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="e.g. grout_bag_25lb" required>
-              <div class="text-[11px] opacity-60 mt-1">Becomes <code>?id=...</code> in QR. Use letters, numbers, dashes, underscores.</div>
-            </div>
-            <div>
-              <label class="text-xs opacity-70">SKU</label>
-              <input id="sku" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="e.g. GR-25-NAT">
-            </div>
-          </div>
 
+        <form id="prodForm" class="space-y-3">
           <div>
             <label class="text-xs opacity-70">Name</label>
             <input id="name" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="e.g. Type N Grout 25 lb" required>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-end">
+            <div>
+              <label class="text-xs opacity-70">Product ID (auto from name)</label>
+              <input id="pid" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="auto-generated" required>
+              <div class="text-[11px] opacity-60 mt-1">We’ll make this from the name. You may tweak it if needed.</div>
+            </div>
+            <button id="regenBtn" type="button" class="px-3 py-2 rounded bg-slate-800">Regenerate</button>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -65,7 +63,7 @@
             <div>
               <label class="text-xs opacity-70">Photo (upload)</label>
               <input id="photoFile" type="file" accept="image/*" class="w-full px-3 py-2 rounded bg-slate-800">
-              <div class="text-[11px] opacity-60 mt-1">Optional. One image per product. Upload overwrites previous image.</div>
+              <div class="text-[11px] opacity-60 mt-1">Optional. One image per product (overwrite if re-created).</div>
             </div>
             <div>
               <label class="text-xs opacity-70">Photo URL (optional)</label>
@@ -98,9 +96,9 @@
                 <img id="previewImg" class="w-20 h-20 rounded object-cover bg-slate-800" alt="">
                 <div class="text-sm">
                   <div id="previewName" class="font-semibold"></div>
-                  <div id="previewSku" class="opacity-70"></div>
                   <div id="previewLoc" class="opacity-70"></div>
                   <div id="previewQty" class="opacity-70"></div>
+                  <div id="previewPid" class="opacity-70"></div>
                 </div>
               </div>
             </div>
@@ -149,11 +147,12 @@
     const roleBadge = $("roleBadge");
 
     const emailEl = $("email"), passEl = $("pass"), loginBtn = $("loginBtn");
-    const pidEl = $("pid"), nameEl = $("name"), skuEl = $("sku"), qtyEl = $("quantity"), locEl = $("location");
+    const nameEl = $("name"), pidEl = $("pid"), regenBtn = $("regenBtn");
+    const qtyEl = $("quantity"), locEl = $("location");
     const photoFileEl = $("photoFile"), photoUrlEl = $("photoUrl");
     const createBtn = $("createBtn"), prodForm = $("prodForm"), statusEl = $("status");
     const resultBox = $("result"), prodLink = $("prodLink"), qrCanvas = $("qrCanvas"), downloadQR = $("downloadQR");
-    const previewImg = $("previewImg"), previewName = $("previewName"), previewSku = $("previewSku"), previewLoc = $("previewLoc"), previewQty = $("previewQty");
+    const previewImg = $("previewImg"), previewName = $("previewName"), previewLoc = $("previewLoc"), previewQty = $("previewQty"), previewPid = $("previewPid");
 
     let isAdmin = false;
 
@@ -168,14 +167,12 @@
       authBar.innerHTML = `Signed in as <b>${user.email}</b> — <button id="logout" class="underline">Sign out</button>`;
       document.getElementById("logout").onclick = () => signOut(auth);
 
-      // Check role
       const roleSnap = await get(ref(db, `roles/${user.uid}/role`));
       const roleVal = roleSnap.val();
       isAdmin = roleVal === "admin";
       if (!isAdmin) {
         roleBadge.textContent = `Role: ${roleVal || 'none'} (no admin)`;
         roleBadge.className = "px-2 py-1 rounded bg-amber-700/30";
-        toast("You must be admin to create products.");
         show(loginSec, false); show(adminPanel, false);
         return;
       }
@@ -192,12 +189,39 @@
       }
     };
 
+    // Slugify Name -> ID
+    function slugify(s){
+      return (s || "")
+        .toLowerCase()
+        .normalize('NFKD').replace(/[\u0300-\u036f]/g,'') // remove accents
+        .replace(/[^a-z0-9]+/g, '-')                     // non-alnum -> dash
+        .replace(/^-+|-+$/g, '')                         // trim dashes
+        .replace(/--+/g,'-')                             // collapse
+        .slice(0, 60);                                   // keep it short-ish
+    }
+
+    // Live PID suggestion as name changes
+    nameEl.addEventListener('input', ()=>{
+      const s = slugify(nameEl.value);
+      if (!pidTouched) pidEl.value = s;
+      refreshPreview();
+    });
+    // Allow edits but keep “Regenerate” button
+    let pidTouched = false;
+    pidEl.addEventListener('input', ()=>{ pidTouched = true; refreshPreview(); });
+    regenBtn.addEventListener('click', ()=>{ pidEl.value = slugify(nameEl.value); pidTouched = false; refreshPreview(); });
+
     // Preview update
-    function refreshPreview(pid, name, sku, loc, qty, url){
+    function refreshPreview(){
+      const name = nameEl.value.trim();
+      const pid = pidEl.value.trim();
+      const loc = locEl.value.trim();
+      const qty = Number(qtyEl.value || 0);
       previewName.textContent = name || "";
-      previewSku.textContent  = sku ? `SKU: ${sku}` : "";
       previewLoc.textContent  = loc ? `Location: ${loc}` : "";
-      previewQty.textContent  = `Initial Qty: ${Number(qty||0)}`;
+      previewQty.textContent  = `Initial Qty: ${qty}`;
+      previewPid.textContent  = pid ? `ID: ${pid}` : "";
+      const url = photoUrlEl.value.trim();
       if (url) previewImg.src = url;
     }
 
@@ -213,23 +237,38 @@
       };
     }
 
+    // Choose a unique pid (pid, pid-2, pid-3, …)
+    async function uniquePid(base){
+      let n = 0;
+      while (n < 50) {
+        const cand = n === 0 ? base : `${base}-${n+1}`;
+        const snap = await get(ref(db, `products/${cand}`));
+        if (!snap.exists()) return cand;
+        n++;
+      }
+      throw new Error('Could not find unique Product ID');
+    }
+
     prodForm.addEventListener("submit", async (e)=>{
       e.preventDefault();
       if (!isAdmin) { toast("Admin only."); return; }
 
-      const pid = pidEl.value.trim();
       const name = nameEl.value.trim();
-      const sku  = skuEl.value.trim();
+      const pidIn = (pidEl.value.trim() || slugify(name));
+      const basePid = slugify(pidIn || name);
       const qty  = Number(qtyEl.value || 0);
       const loc  = locEl.value.trim();
       const file = photoFileEl.files && photoFileEl.files[0] ? photoFileEl.files[0] : null;
       const urlIn = photoUrlEl.value.trim();
 
-      if (!pid || !name) { toast("Product ID and Name are required."); return; }
+      if (!name) { toast("Name is required."); return; }
       statusEl.textContent = "Saving…";
 
       try {
-        // 1) Upload image if provided (one image per product, overwrite)
+        // 0) Ensure unique product ID
+        const pid = await uniquePid(basePid);
+
+        // 1) Upload image if provided (one image per product, overwrite path)
         let photoUrl = urlIn || "";
         if (file) {
           const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -240,34 +279,33 @@
           photoUrl = await getDownloadURL(objectRef);
         }
 
-        // 2) Create/overwrite product in RTDB
+        // 2) Create product in RTDB
         const now = serverTimestamp();
         await update(ref(db, `products/${pid}`), {
-          name, sku, quantity: qty, location: loc,
+          name, quantity: qty, location: loc,
           photoUrl: photoUrl || null,
           createdAt: now, createdBy: auth.currentUser.uid,
           updatedAt: now, updatedBy: auth.currentUser.uid
         });
 
-        // 3) Show result + QR
+        // 3) Show result + QR (point to inventory.html?id=pid)
         const base = `${location.origin}${location.pathname}`.replace(/admin\.html.*$/,'');
         const itemUrl = `${base}inventory.html?id=${encodeURIComponent(pid)}`;
-        refreshPreview(pid, name, sku, loc, qty, photoUrl);
+        pidEl.value = pid; // show final pid (with suffix if added)
+        refreshPreview();
         renderQR(itemUrl);
         show(resultBox, true);
         statusEl.textContent = "Saved.";
       } catch (err) {
         console.error(err);
         statusEl.textContent = "";
-        toast("Save failed. Check permissions and network.");
+        toast(err.message || "Save failed. Check permissions and network.");
       }
     });
 
     // Live preview on inputs
-    [pidEl, nameEl, skuEl, qtyEl, locEl, photoUrlEl].forEach(el=>{
-      el.addEventListener('input', ()=>{
-        refreshPreview(pidEl.value, nameEl.value, skuEl.value, locEl.value, qtyEl.value, photoUrlEl.value);
-      });
+    [nameEl, qtyEl, locEl, photoUrlEl].forEach(el=>{
+      el.addEventListener('input', refreshPreview);
     });
     photoFileEl.addEventListener('change', ()=>{
       const f = photoFileEl.files && photoFileEl.files[0];
