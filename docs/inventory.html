@@ -79,7 +79,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-    import { getDatabase, ref, onValue, runTransaction, push, update, serverTimestamp, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+    import { getDatabase, ref, onValue, runTransaction, push, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
     // Firebase config
     const firebaseConfig = {
@@ -135,7 +135,7 @@
 
       pid = q("id") || "prod_demo";
       bindProduct(pid);
-      subscribeHistory(pid);
+      subscribeHistorySimple(pid);
       renderPending();
       show(prodSec, true);
     });
@@ -160,15 +160,15 @@
       });
     }
 
-    // Subscribe + render newest-first history
-    function subscribeHistory(id){
-      const qRef = query(ref(db,'transactions'), orderByChild('productId'), equalTo(id));
-      onValue(qRef, (snap)=>{
+    // Simple, robust history: read /transactions and filter by productId, newest-first
+    function subscribeHistorySimple(id){
+      onValue(ref(db,'transactions'), (snap)=>{
         const txns = [];
-        snap.forEach(c => txns.push({ id: c.key, ...c.val() }));
-        // sort NEWEST -> OLDEST by 'at'
-        txns.sort((a,b) => (b.at || 0) - (a.at || 0));
-
+        snap.forEach(c => {
+          const t = { id: c.key, ...c.val() };
+          if (t.productId === id) txns.push(t);
+        });
+        txns.sort((a,b) => (b.at || 0) - (a.at || 0)); // NEWEST first
         if (txns.length === 0) {
           historyBody.innerHTML = "";
           show(historyEmpty, true);
@@ -191,11 +191,11 @@
             </tr>
           `;
         }).join('');
-      }, (err) => {
+      }, (err)=>{
         console.error("history listener error:", err);
         historyBody.innerHTML = "";
         show(historyEmpty, true);
-        historyEmpty.textContent = "History unavailable (rules/index).";
+        historyEmpty.textContent = "History unavailable.";
       });
     }
 
@@ -226,7 +226,7 @@
         const txnRef = push(ref(db,'transactions'));
         await update(txnRef, {
           productId: pid,
-          type: delta > 0 ? 'add' : 'remove',  // REQUIRED by rules
+          type: delta > 0 ? 'add' : 'remove',
           delta,
           by: uid,
           byEmail: email,
