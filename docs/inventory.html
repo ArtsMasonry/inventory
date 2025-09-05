@@ -10,6 +10,7 @@
   <main class="max-w-xl mx-auto p-4 space-y-4">
     <div id="authBar" class="flex items-center justify-between text-sm opacity-80"></div>
 
+    <!-- Sign-in -->
     <section id="login" class="space-y-2">
       <h2 class="text-lg font-semibold">Sign in</h2>
       <input id="email" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Email">
@@ -17,6 +18,7 @@
       <button id="loginBtn" class="px-4 py-2 rounded bg-blue-600">Sign in</button>
     </section>
 
+    <!-- Product card -->
     <section id="product" class="hidden">
       <div class="rounded-2xl bg-slate-900/60 p-4">
         <div class="flex items-start gap-3">
@@ -27,6 +29,7 @@
             <div id="location" class="text-xs opacity-70"></div>
           </div>
         </div>
+
         <div class="mt-4 text-center">
           <div class="text-xs uppercase tracking-wider opacity-70">On Hand</div>
           <div id="qty" class="text-5xl font-bold my-2">–</div>
@@ -48,8 +51,27 @@
         <div class="mt-3">
           <input id="note" placeholder="Optional note" class="w-full px-3 py-2 rounded-xl bg-slate-800/70"/>
         </div>
+
         <div id="toast" class="hidden mt-3 text-center text-sm"></div>
-        <div id="history" class="mt-4 text-xs opacity-80"></div>
+
+        <!-- History (audit log) -->
+        <div class="mt-6">
+          <h3 class="text-sm font-semibold mb-2">History</h3>
+          <div class="max-h-64 overflow-auto rounded-xl bg-slate-900/40">
+            <table class="w-full text-xs">
+              <thead class="sticky top-0 bg-slate-900/70">
+                <tr>
+                  <th class="text-left px-3 py-2">Date/Time</th>
+                  <th class="text-left px-3 py-2">User</th>
+                  <th class="text-right px-3 py-2">Starting Qty</th>
+                  <th class="text-right px-3 py-2">Change</th>
+                  <th class="text-right px-3 py-2">Ending Qty</th>
+                </tr>
+              </thead>
+              <tbody id="historyBody"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -79,15 +101,16 @@
     const $ = (x)=>document.getElementById(x);
     const show = (el, yes)=> el.classList.toggle("hidden", !yes);
     const q = (k,d=null)=> new URLSearchParams(location.search).get(k) || d;
-    const toastEl = $("toast"); 
+    const toastEl = $("toast");
     const toast=(m)=>{toastEl.textContent=m; show(toastEl,true); setTimeout(()=>show(toastEl,false),3000);};
 
     let pid = null, pending = 0;
 
     const loginSec = $("login"), prodSec = $("product"), authBar = $("authBar");
     const nameEl = $("name"), skuEl = $("sku"), locEl = $("location"), qtyEl = $("qty"), photoEl = $("photo");
-    const minusBtn = $("minusBtn"), plusBtn = $("plusBtn"), noteEl = $("note"), histEl = $("history");
+    const minusBtn = $("minusBtn"), plusBtn = $("plusBtn"), noteEl = $("note");
     const pendingBadge = $("pendingBadge"), submitBtn = $("submitBtn"), cancelBtn = $("cancelBtn");
+    const historyBody = $("historyBody");
 
     function renderPending() {
       if (pending === 0) {
@@ -137,16 +160,29 @@
       });
     }
 
+    // Full audit log (all transactions for this product)
     function loadHistory(id){
       onValue(query(ref(db,'transactions'), orderByChild('productId'), equalTo(id)), (snap)=>{
-        const rows=[]; snap.forEach(s=>rows.push(s.val()));
-        rows.sort((a,b)=>(a.at||0)-(b.at||0));
-        const last = rows.slice(-10).reverse();
-        histEl.innerHTML = '<div class="font-semibold mb-1">Recent</div>' + last.map(t=>{
-          const s = t.at ? new Date(t.at).toLocaleString() : "";
-          const d = t.delta>0?`+${t.delta}`:`${t.delta}`;
-          return `<div class="flex justify-between"><span>${s}</span><span>${d}</span></div>`;
-        }).join("");
+        const txns = [];
+        snap.forEach(c => txns.push({ id: c.key, ...c.val() }));
+        // sort oldest -> newest, then render all (table is scrollable)
+        txns.sort((a,b) => (a.at || 0) - (b.at || 0));
+        historyBody.innerHTML = txns.map(t => {
+          const when = t.at ? new Date(t.at).toLocaleString() : '';
+          const who  = t.byEmail || t.by || '';
+          const change = (t.delta > 0 ? '+' : '') + (t.delta ?? 0);
+          const start = (t.startingQty ?? '');
+          const end   = (t.endingQty   ?? '');
+          return `
+            <tr class="border-t border-slate-800/60">
+              <td class="px-3 py-2">${when}</td>
+              <td class="px-3 py-2">${who}</td>
+              <td class="px-3 py-2 text-right">${start}</td>
+              <td class="px-3 py-2 text-right">${change}</td>
+              <td class="px-3 py-2 text-right">${end}</td>
+            </tr>
+          `;
+        }).join('');
       });
     }
 
@@ -156,6 +192,7 @@
 
     cancelBtn.onclick = () => { pending = 0; renderPending(); };
 
+    // Submit: record starting/ending qty, user, and delta
     submitBtn.onclick = async () => {
       if (!pending) return;
       const delta = pending;
@@ -163,17 +200,37 @@
 
       try {
         const uid = auth.currentUser.uid;
+        const email = auth.currentUser.email || uid;
+
+        // Compute start/end atomically and update product
+        let startVal = null, endVal = null;
+        await runTransaction(ref(db,`products/${pid}/quantity`), q => {
+          startVal = q || 0;
+          endVal = startVal + delta;
+          return endVal;
+        });
+
+        // Write a transaction row with full audit fields
         const txnRef = push(ref(db,'transactions'));
         await update(txnRef, {
           productId: pid,
-          type: delta > 0 ? 'add' : 'remove',
           delta,
           by: uid,
-          at: serverTimestamp()
+          byEmail: email,
+          note: (noteEl.value || '').trim() || null,
+          at: serverTimestamp(),
+          startingQty: startVal,
+          endingQty: endVal
         });
-        await runTransaction(ref(db,`products/${pid}/quantity`), q => (q||0)+delta);
-        await update(ref(db,`products/${pid}`), { updatedBy: uid, updatedAt: serverTimestamp() });
+
+        // Stamp product metadata
+        await update(ref(db,`products/${pid}`), {
+          updatedBy: uid,
+          updatedAt: serverTimestamp()
+        });
+
         toast(`Saved ${delta > 0 ? '+' : ''}${delta}`);
+        noteEl.value = '';
       } catch (e) {
         console.error(e);
         toast("Submit failed. Check connection.");
