@@ -2,76 +2,90 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Inventory</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
-  <main class="max-w-xl mx-auto p-4 space-y-4">
-    <div id="authBar" class="flex items-center justify-between text-sm opacity-80"></div>
+  <main class="max-w-xl mx-auto p-3 sm:p-4 space-y-4">
+    <div id="authBar" class="flex items-center justify-between text-xs sm:text-sm opacity-80"></div>
 
     <!-- Sign-in -->
     <section id="login" class="space-y-2">
       <h2 class="text-lg font-semibold">Sign in</h2>
-      <input id="email" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Email">
-      <input id="pass" type="password" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Password">
-      <button id="loginBtn" class="px-4 py-2 rounded bg-blue-600">Sign in</button>
+      <input id="email" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Email" autocomplete="username">
+      <input id="pass" type="password" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Password" autocomplete="current-password">
+      <button id="loginBtn" class="w-full sm:w-auto px-4 py-2 rounded bg-blue-600">Sign in</button>
       <div id="toast" class="hidden mt-3 text-center text-sm"></div>
     </section>
 
     <!-- Product card -->
     <section id="product" class="hidden">
-      <div class="rounded-2xl bg-slate-900/60 p-4">
+      <div class="rounded-2xl bg-slate-900/60 p-3 sm:p-4">
         <div class="flex items-start gap-3">
-          <img id="photo" class="w-20 h-20 rounded-xl object-cover bg-slate-800" alt=""/>
-          <div>
-            <h1 id="name" class="text-xl font-semibold"></h1>
-            <div id="sku" class="text-xs opacity-70"></div>
-            <div id="location" class="text-xs opacity-70"></div>
+          <img id="photo" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-slate-800" alt=""/>
+          <div class="min-w-0">
+            <h1 id="name" class="text-lg sm:text-xl font-semibold truncate"></h1>
+            <div id="sku" class="text-xs opacity-70 truncate"></div>
+            <div id="location" class="text-xs opacity-70 truncate"></div>
           </div>
         </div>
 
-        <div class="mt-4 text-center">
-          <div class="text-xs uppercase tracking-wider opacity-70">On Hand</div>
-          <div id="qty" class="text-5xl font-bold my-2">–</div>
+        <div class="mt-3 sm:mt-4 text-center">
+          <div class="text-[10px] sm:text-xs uppercase tracking-wider opacity-70">On Hand</div>
+          <div id="qty" class="text-5xl sm:text-6xl font-bold my-2">–</div>
         </div>
 
         <!-- Adjustment controls -->
-        <div class="mt-3 flex items-center justify-center gap-4">
-          <button id="minusBtn" class="text-3xl w-20 h-20 rounded-2xl bg-slate-800">−</button>
-          <button id="plusBtn"  class="text-3xl w-20 h-20 rounded-2xl bg-slate-800">+</button>
+        <div class="mt-2 sm:mt-3 flex items-center justify-center gap-3 sm:gap-4">
+          <button id="minusBtn" class="text-3xl w-24 h-24 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 active:scale-95">−</button>
+          <button id="plusBtn"  class="text-3xl w-24 h-24 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 active:scale-95">+</button>
         </div>
 
         <!-- Pending + Submit/Cancel -->
-        <div class="mt-3 flex items-center justify-center gap-3">
+        <div class="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
           <span id="pendingBadge" class="px-3 py-1 rounded-full text-sm bg-slate-800/70 hidden">Pending 0</span>
-          <button id="submitBtn" class="px-4 py-2 rounded-xl bg-blue-600 disabled:opacity-40" disabled>Submit</button>
-          <button id="cancelBtn" class="px-4 py-2 rounded-xl bg-slate-700 disabled:opacity-40" disabled>Cancel</button>
+          <div class="flex gap-2">
+            <button id="submitBtn" class="px-4 py-2 rounded-xl bg-blue-600 disabled:opacity-40" disabled>Submit</button>
+            <button id="cancelBtn" class="px-4 py-2 rounded-xl bg-slate-700 disabled:opacity-40" disabled>Cancel</button>
+          </div>
         </div>
 
         <div class="mt-3">
           <input id="note" placeholder="Optional note" class="w-full px-3 py-2 rounded-xl bg-slate-800/70"/>
         </div>
 
-        <!-- History (audit log) -->
-        <div class="mt-6">
-          <h3 class="text-sm font-semibold mb-2">History</h3>
-          <div class="max-h-64 overflow-auto rounded-xl bg-slate-900/40">
-            <table class="w-full text-xs">
-              <thead class="sticky top-0 bg-slate-900/70">
-                <tr>
-                  <th class="text-left px-3 py-2">Date/Time</th>
-                  <th class="text-left px-3 py-2">User</th>
-                  <th class="text-right px-3 py-2">Starting Qty</th>
-                  <th class="text-right px-3 py-2">Change</th>
-                  <th class="text-right px-3 py-2">Ending Qty</th>
-                </tr>
-              </thead>
-              <tbody id="historyBody"></tbody>
-            </table>
-            <div id="historyEmpty" class="hidden p-3 text-xs opacity-70">No history yet.</div>
+        <!-- History (collapsible, mobile-first) -->
+        <div class="mt-5">
+          <button id="toggleHistory" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/70">
+            <span class="text-sm font-semibold">History</span>
+            <span id="chev" class="text-xs opacity-70">Show</span>
+          </button>
+
+          <div id="historyWrap" class="hidden mt-2">
+            <div class="rounded-xl bg-slate-900/40">
+              <div class="max-h-64 overflow-y-auto">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs">
+                    <thead class="sticky top-0 bg-slate-900/70">
+                      <tr>
+                        <th class="text-left px-3 py-2 whitespace-nowrap">Date/Time</th>
+                        <th class="text-left px-3 py-2 whitespace-nowrap">User</th>
+                        <!-- Hide Starting Qty on very small screens -->
+                        <th class="hidden sm:table-cell text-right px-3 py-2 whitespace-nowrap">Starting Qty</th>
+                        <th class="text-right px-3 py-2 whitespace-nowrap">Change</th>
+                        <th class="text-right px-3 py-2 whitespace-nowrap">Ending Qty</th>
+                      </tr>
+                    </thead>
+                    <tbody id="historyBody"></tbody>
+                  </table>
+                  <div id="historyEmpty" class="hidden p-3 text-xs opacity-70">No history yet.</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
       </div>
     </section>
   </main>
@@ -111,6 +125,15 @@
     const minusBtn = $("minusBtn"), plusBtn = $("plusBtn"), noteEl = $("note");
     const pendingBadge = $("pendingBadge"), submitBtn = $("submitBtn"), cancelBtn = $("cancelBtn");
     const historyBody = $("historyBody"), historyEmpty = $("historyEmpty");
+    const toggleHistoryBtn = $("toggleHistory"), historyWrap = $("historyWrap"), chev = $("chev");
+
+    // Collapsible history toggle
+    toggleHistoryBtn?.addEventListener("click", () => {
+      const nowOpen = historyWrap.classList.contains("hidden");
+      show(historyWrap, true);
+      if (nowOpen) { historyWrap.classList.remove("hidden"); chev.textContent = "Hide"; }
+      else { historyWrap.classList.add("hidden"); chev.textContent = "Show"; }
+    });
 
     function renderPending() {
       if (pending === 0) {
@@ -135,7 +158,7 @@
 
       pid = q("id") || "prod_demo";
       bindProduct(pid);
-      subscribeHistorySimple(pid);
+      subscribeHistorySimple(pid);   // robust, client-side filtered history
       renderPending();
       show(prodSec, true);
     });
@@ -171,10 +194,10 @@
         txns.sort((a,b) => (b.at || 0) - (a.at || 0)); // NEWEST first
         if (txns.length === 0) {
           historyBody.innerHTML = "";
-          show(historyEmpty, true);
+          historyEmpty.classList.remove("hidden");
           return;
         }
-        show(historyEmpty, false);
+        historyEmpty.classList.add("hidden");
         historyBody.innerHTML = txns.map(t => {
           const when = t.at ? new Date(t.at).toLocaleString() : '';
           const who  = t.byEmail || t.by || '';
@@ -183,18 +206,18 @@
           const end   = (t.endingQty   ?? '');
           return `
             <tr class="border-t border-slate-800/60">
-              <td class="px-3 py-2">${when}</td>
-              <td class="px-3 py-2">${who}</td>
-              <td class="px-3 py-2 text-right">${start}</td>
-              <td class="px-3 py-2 text-right">${change}</td>
-              <td class="px-3 py-2 text-right">${end}</td>
+              <td class="px-3 py-2 whitespace-nowrap">${when}</td>
+              <td class="px-3 py-2 whitespace-nowrap">${who}</td>
+              <td class="hidden sm:table-cell px-3 py-2 text-right whitespace-nowrap">${start}</td>
+              <td class="px-3 py-2 text-right whitespace-nowrap">${change}</td>
+              <td class="px-3 py-2 text-right whitespace-nowrap">${end}</td>
             </tr>
           `;
         }).join('');
       }, (err)=>{
         console.error("history listener error:", err);
         historyBody.innerHTML = "";
-        show(historyEmpty, true);
+        historyEmpty.classList.remove("hidden");
         historyEmpty.textContent = "History unavailable.";
       });
     }
@@ -204,7 +227,7 @@
     plusBtn.onclick  = () => { pending += 1; renderPending(); };
     cancelBtn.onclick = () => { pending = 0; renderPending(); };
 
-    // Submit: atomic qty update + compliant transaction (includes required 'type')
+    // Submit: atomic qty update + compliant transaction
     submitBtn.onclick = async () => {
       if (!pending) return;
       const delta = pending;
@@ -222,7 +245,7 @@
           return endVal;
         });
 
-        // Write transaction row with all required/desired fields
+        // Write transaction row
         const txnRef = push(ref(db,'transactions'));
         await update(txnRef, {
           productId: pid,
