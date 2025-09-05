@@ -135,7 +135,7 @@
 
       pid = q("id") || "prod_demo";
       bindProduct(pid);
-      loadHistory(pid);
+      subscribeHistory(pid);
       renderPending();
       show(prodSec, true);
     });
@@ -160,15 +160,15 @@
       });
     }
 
-    // Full audit log for this product
-    function loadHistory(id){
+    // Subscribe + render newest-first history
+    function subscribeHistory(id){
       const qRef = query(ref(db,'transactions'), orderByChild('productId'), equalTo(id));
       onValue(qRef, (snap)=>{
         const txns = [];
         snap.forEach(c => txns.push({ id: c.key, ...c.val() }));
-        // sort oldest -> newest, then render
-        txns.sort((a,b) => (a.at || 0) - (b.at || 0));
-        console.log("history count:", txns.length);
+        // sort NEWEST -> OLDEST by 'at'
+        txns.sort((a,b) => (b.at || 0) - (a.at || 0));
+
         if (txns.length === 0) {
           historyBody.innerHTML = "";
           show(historyEmpty, true);
