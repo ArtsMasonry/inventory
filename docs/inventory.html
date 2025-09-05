@@ -69,6 +69,7 @@
               </thead>
               <tbody id="historyBody"></tbody>
             </table>
+            <div id="historyEmpty" class="hidden p-3 text-xs opacity-70">No history yet.</div>
           </div>
         </div>
       </div>
@@ -109,7 +110,7 @@
     const nameEl = $("name"), skuEl = $("sku"), locEl = $("location"), qtyEl = $("qty"), photoEl = $("photo");
     const minusBtn = $("minusBtn"), plusBtn = $("plusBtn"), noteEl = $("note");
     const pendingBadge = $("pendingBadge"), submitBtn = $("submitBtn"), cancelBtn = $("cancelBtn");
-    const historyBody = $("historyBody");
+    const historyBody = $("historyBody"), historyEmpty = $("historyEmpty");
 
     function renderPending() {
       if (pending === 0) {
@@ -161,10 +162,19 @@
 
     // Full audit log for this product
     function loadHistory(id){
-      onValue(query(ref(db,'transactions'), orderByChild('productId'), equalTo(id)), (snap)=>{
+      const qRef = query(ref(db,'transactions'), orderByChild('productId'), equalTo(id));
+      onValue(qRef, (snap)=>{
         const txns = [];
         snap.forEach(c => txns.push({ id: c.key, ...c.val() }));
-        txns.sort((a,b) => (a.at || 0) - (b.at || 0)); // oldest -> newest
+        // sort oldest -> newest, then render
+        txns.sort((a,b) => (a.at || 0) - (b.at || 0));
+        console.log("history count:", txns.length);
+        if (txns.length === 0) {
+          historyBody.innerHTML = "";
+          show(historyEmpty, true);
+          return;
+        }
+        show(historyEmpty, false);
         historyBody.innerHTML = txns.map(t => {
           const when = t.at ? new Date(t.at).toLocaleString() : '';
           const who  = t.byEmail || t.by || '';
@@ -181,6 +191,11 @@
             </tr>
           `;
         }).join('');
+      }, (err) => {
+        console.error("history listener error:", err);
+        historyBody.innerHTML = "";
+        show(historyEmpty, true);
+        historyEmpty.textContent = "History unavailable (rules/index).";
       });
     }
 
