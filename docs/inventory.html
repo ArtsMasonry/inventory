@@ -55,7 +55,7 @@
           <input id="note" placeholder="Optional note" class="w-full px-3 py-2 rounded-xl bg-slate-800/70"/>
         </div>
 
-        <!-- History (collapsible, mobile-first) -->
+        <!-- History (tiles) -->
         <div class="mt-5">
           <button id="toggleHistory" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/70">
             <span class="text-sm font-semibold">History</span>
@@ -63,29 +63,10 @@
           </button>
 
           <div id="historyWrap" class="hidden mt-2">
-            <div class="rounded-xl bg-slate-900/40">
-              <div class="max-h-64 overflow-y-auto">
-                <div class="overflow-x-auto">
-                  <table class="w-full text-xs">
-                    <thead class="sticky top-0 bg-slate-900/70">
-                      <tr>
-                        <th class="text-left px-3 py-2 whitespace-nowrap">Date/Time</th>
-                        <th class="text-left px-3 py-2 whitespace-nowrap">User</th>
-                        <!-- Hide Starting Qty on very small screens -->
-                        <th class="hidden sm:table-cell text-right px-3 py-2 whitespace-nowrap">Starting Qty</th>
-                        <th class="text-right px-3 py-2 whitespace-nowrap">Change</th>
-                        <th class="text-right px-3 py-2 whitespace-nowrap">Ending Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody id="historyBody"></tbody>
-                  </table>
-                  <div id="historyEmpty" class="hidden p-3 text-xs opacity-70">No history yet.</div>
-                </div>
-              </div>
-            </div>
+            <div id="historyEmpty" class="hidden p-3 text-xs opacity-70">No history yet.</div>
+            <div id="historyTiles" class="space-y-2"></div>
           </div>
         </div>
-
       </div>
     </section>
   </main>
@@ -124,14 +105,15 @@
     const nameEl = $("name"), skuEl = $("sku"), locEl = $("location"), qtyEl = $("qty"), photoEl = $("photo");
     const minusBtn = $("minusBtn"), plusBtn = $("plusBtn"), noteEl = $("note");
     const pendingBadge = $("pendingBadge"), submitBtn = $("submitBtn"), cancelBtn = $("cancelBtn");
-    const historyBody = $("historyBody"), historyEmpty = $("historyEmpty");
+
+    // History UI
     const toggleHistoryBtn = $("toggleHistory"), historyWrap = $("historyWrap"), chev = $("chev");
+    const historyTiles = $("historyTiles"), historyEmpty = $("historyEmpty");
 
     // Collapsible history toggle
     toggleHistoryBtn?.addEventListener("click", () => {
-      const nowOpen = historyWrap.classList.contains("hidden");
-      show(historyWrap, true);
-      if (nowOpen) { historyWrap.classList.remove("hidden"); chev.textContent = "Hide"; }
+      const open = historyWrap.classList.contains("hidden");
+      if (open) { historyWrap.classList.remove("hidden"); chev.textContent = "Hide"; }
       else { historyWrap.classList.add("hidden"); chev.textContent = "Show"; }
     });
 
@@ -158,7 +140,7 @@
 
       pid = q("id") || "prod_demo";
       bindProduct(pid);
-      subscribeHistorySimple(pid);   // robust, client-side filtered history
+      subscribeHistoryTiles(pid);  // tiles renderer
       renderPending();
       show(prodSec, true);
     });
@@ -183,8 +165,8 @@
       });
     }
 
-    // Simple, robust history: read /transactions and filter by productId, newest-first
-    function subscribeHistorySimple(id){
+    // Tiles history: read all /transactions, filter by productId, newest first
+    function subscribeHistoryTiles(id){
       onValue(ref(db,'transactions'), (snap)=>{
         const txns = [];
         snap.forEach(c => {
@@ -193,33 +175,58 @@
         });
         txns.sort((a,b) => (b.at || 0) - (a.at || 0)); // NEWEST first
         if (txns.length === 0) {
-          historyBody.innerHTML = "";
+          historyTiles.innerHTML = "";
           historyEmpty.classList.remove("hidden");
           return;
         }
         historyEmpty.classList.add("hidden");
-        historyBody.innerHTML = txns.map(t => {
-          const when = t.at ? new Date(t.at).toLocaleString() : '';
-          const who  = t.byEmail || t.by || '';
-          const change = (t.delta > 0 ? '+' : '') + (t.delta ?? 0);
-          const start = (t.startingQty ?? '');
-          const end   = (t.endingQty   ?? '');
-          return `
-            <tr class="border-t border-slate-800/60">
-              <td class="px-3 py-2 whitespace-nowrap">${when}</td>
-              <td class="px-3 py-2 whitespace-nowrap">${who}</td>
-              <td class="hidden sm:table-cell px-3 py-2 text-right whitespace-nowrap">${start}</td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">${change}</td>
-              <td class="px-3 py-2 text-right whitespace-nowrap">${end}</td>
-            </tr>
-          `;
-        }).join('');
+        historyTiles.innerHTML = txns.map(t => tileHTML(t)).join('');
       }, (err)=>{
         console.error("history listener error:", err);
-        historyBody.innerHTML = "";
+        historyTiles.innerHTML = "";
         historyEmpty.classList.remove("hidden");
         historyEmpty.textContent = "History unavailable.";
       });
+    }
+
+    // Render one history tile (card)
+    function tileHTML(t){
+      const when = t.at ? new Date(t.at).toLocaleString() : '';
+      const who  = t.byEmail || t.by || '';
+      const delta = Number(t.delta || 0);
+      const change = (delta > 0 ? `+${delta}` : `${delta}`);
+      const start = (t.startingQty ?? '');
+      const end   = (t.endingQty   ?? '');
+      const note  = t.note ? String(t.note) : '';
+
+      const badgeClass = delta >= 0 ? "bg-emerald-700/30 text-emerald-200" : "bg-rose-700/30 text-rose-200";
+
+      return `
+        <div class="rounded-xl bg-slate-900/50 p-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs opacity-80">${when}</div>
+            <span class="text-xs px-2 py-1 rounded-full ${badgeClass}">${change}</span>
+          </div>
+
+          <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <div class="opacity-70">User</div>
+            <div class="truncate">${who}</div>
+
+            <div class="opacity-70">Starting</div>
+            <div class="text-right">${start}</div>
+
+            <div class="opacity-70">Ending</div>
+            <div class="text-right font-semibold">${end}</div>
+          </div>
+
+          ${note ? `<div class="mt-2 text-xs opacity-80"><span class="opacity-70">Note:</span> ${escapeHTML(note)}</div>` : ``}
+        </div>
+      `;
+    }
+
+    // Basic HTML escape for notes
+    function escapeHTML(s){
+      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
     // Pending logic
