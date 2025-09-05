@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Admin — Create Product</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- QR generator -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <main class="max-w-2xl mx-auto p-4 space-y-4">
+    <header class="flex items-center justify-between text-xs sm:text-sm opacity-80">
+      <div id="authBar"></div>
+      <div id="roleBadge" class="px-2 py-1 rounded bg-slate-800/70">Role: —</div>
+    </header>
+
+    <!-- Auth -->
+    <section id="login" class="space-y-3">
+      <h2 class="text-lg font-semibold">Admin Access</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <input id="email" class="px-3 py-2 rounded bg-slate-800" placeholder="Email" autocomplete="username">
+        <input id="pass" type="password" class="px-3 py-2 rounded bg-slate-800" placeholder="Password" autocomplete="current-password">
+        <button id="loginBtn" class="px-4 py-2 rounded bg-blue-600">Sign in</button>
+      </div>
+      <div class="text-xs opacity-70">Only users with role <b>admin</b> can create products.</div>
+      <div id="toast" class="hidden mt-2 text-center text-sm"></div>
+    </section>
+
+    <!-- Admin form -->
+    <section id="adminPanel" class="hidden">
+      <div class="rounded-2xl bg-slate-900/60 p-4">
+        <h2 class="text-lg font-semibold mb-3">Create a New Product</h2>
+        <form id="prodForm" class="space-y-3">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs opacity-70">Product ID (URL id)</label>
+              <input id="pid" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="e.g. grout_bag_25lb" required>
+              <div class="text-[11px] opacity-60 mt-1">Becomes <code>?id=...</code> in QR. Use letters, numbers, dashes, underscores.</div>
+            </div>
+            <div>
+              <label class="text-xs opacity-70">SKU</label>
+              <input id="sku" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="e.g. GR-25-NAT">
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs opacity-70">Name</label>
+            <input id="name" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="e.g. Type N Grout 25 lb" required>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="text-xs opacity-70">Initial Quantity</label>
+              <input id="quantity" type="number" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="0" value="0" required>
+            </div>
+            <div class="sm:col-span-2">
+              <label class="text-xs opacity-70">Location</label>
+              <input id="location" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="e.g. Aisle 3, Pallet B">
+            </div>
+          </div>
+
+          <!-- Photo upload OR URL (upload wins) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs opacity-70">Photo (upload)</label>
+              <input id="photoFile" type="file" accept="image/*" class="w-full px-3 py-2 rounded bg-slate-800">
+              <div class="text-[11px] opacity-60 mt-1">Optional. One image per product. Upload overwrites previous image.</div>
+            </div>
+            <div>
+              <label class="text-xs opacity-70">Photo URL (optional)</label>
+              <input id="photoUrl" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="https://...">
+              <div class="text-[11px] opacity-60 mt-1">If both provided, upload takes precedence.</div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button id="createBtn" type="submit" class="px-4 py-2 rounded bg-emerald-600">Create Product</button>
+            <div id="status" class="text-sm opacity-80"></div>
+          </div>
+        </form>
+
+        <!-- Result -->
+        <div id="result" class="hidden mt-5 rounded-xl bg-slate-900/50 p-4">
+          <h3 class="text-sm font-semibold mb-2">Product Created</h3>
+          <div class="text-xs opacity-80">Link:</div>
+          <a id="prodLink" class="text-sm underline break-all" target="_blank" rel="noopener">open</a>
+
+          <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="rounded-lg bg-slate-900/60 p-3">
+              <div class="text-xs opacity-70 mb-1">QR Code</div>
+              <canvas id="qrCanvas" class="bg-white rounded"></canvas>
+              <button id="downloadQR" class="mt-2 px-3 py-1 rounded bg-slate-800">Download PNG</button>
+            </div>
+            <div class="rounded-lg bg-slate-900/60 p-3">
+              <div class="text-xs opacity-70 mb-2">Preview</div>
+              <div class="flex items-start gap-3">
+                <img id="previewImg" class="w-20 h-20 rounded object-cover bg-slate-800" alt="">
+                <div class="text-sm">
+                  <div id="previewName" class="font-semibold"></div>
+                  <div id="previewSku" class="opacity-70"></div>
+                  <div id="previewLoc" class="opacity-70"></div>
+                  <div id="previewQty" class="opacity-70"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 text-[11px] opacity-70">
+            Print the QR and place it above the pallet. Workers scan it to open the item page.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import { getDatabase, ref, get, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+    import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyAy8uJsjPrdHKp60afCtnTdYGLHoYTEHyc",
+      authDomain: "artsinventorymachine.firebaseapp.com",
+      databaseURL: "https://artsinventorymachine-default-rtdb.firebaseio.com",
+      projectId: "artsinventorymachine",
+      storageBucket: "artsinventorymachine.firebasestorage.app",
+      messagingSenderId: "1003904050464",
+      appId: "1:1003904050464:web:5a35989900fbdc5fa72345",
+      measurementId: "G-BEJKKJK9H5"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+    const storage = getStorage(app);
+
+    // UI helpers
+    const $ = (x)=>document.getElementById(x);
+    const show = (el, yes)=> el.classList.toggle("hidden", !yes);
+    const toastEl = $("toast");
+    const toast=(m)=>{ toastEl.textContent=m; toastEl.classList.remove("hidden"); setTimeout(()=>toastEl.classList.add("hidden"), 3000); };
+
+    const loginSec = $("login");
+    const adminPanel = $("adminPanel");
+    const authBar = $("authBar");
+    const roleBadge = $("roleBadge");
+
+    const emailEl = $("email"), passEl = $("pass"), loginBtn = $("loginBtn");
+    const pidEl = $("pid"), nameEl = $("name"), skuEl = $("sku"), qtyEl = $("quantity"), locEl = $("location");
+    const photoFileEl = $("photoFile"), photoUrlEl = $("photoUrl");
+    const createBtn = $("createBtn"), prodForm = $("prodForm"), statusEl = $("status");
+    const resultBox = $("result"), prodLink = $("prodLink"), qrCanvas = $("qrCanvas"), downloadQR = $("downloadQR");
+    const previewImg = $("previewImg"), previewName = $("previewName"), previewSku = $("previewSku"), previewLoc = $("previewLoc"), previewQty = $("previewQty");
+
+    let isAdmin = false;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        authBar.innerHTML = "";
+        roleBadge.textContent = "Role: none";
+        roleBadge.className = "px-2 py-1 rounded bg-amber-700/30";
+        show(loginSec, true); show(adminPanel, false);
+        return;
+      }
+      authBar.innerHTML = `Signed in as <b>${user.email}</b> — <button id="logout" class="underline">Sign out</button>`;
+      document.getElementById("logout").onclick = () => signOut(auth);
+
+      // Check role
+      const roleSnap = await get(ref(db, `roles/${user.uid}/role`));
+      const roleVal = roleSnap.val();
+      isAdmin = roleVal === "admin";
+      if (!isAdmin) {
+        roleBadge.textContent = `Role: ${roleVal || 'none'} (no admin)`;
+        roleBadge.className = "px-2 py-1 rounded bg-amber-700/30";
+        toast("You must be admin to create products.");
+        show(loginSec, false); show(adminPanel, false);
+        return;
+      }
+      roleBadge.textContent = "Role: admin";
+      roleBadge.className = "px-2 py-1 rounded bg-sky-700/30";
+      show(loginSec, false); show(adminPanel, true);
+    });
+
+    loginBtn.onclick = async () => {
+      try {
+        await signInWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value.trim());
+      } catch(e) {
+        toast(e.code || "Sign-in failed");
+      }
+    };
+
+    // Preview update
+    function refreshPreview(pid, name, sku, loc, qty, url){
+      previewName.textContent = name || "";
+      previewSku.textContent  = sku ? `SKU: ${sku}` : "";
+      previewLoc.textContent  = loc ? `Location: ${loc}` : "";
+      previewQty.textContent  = `Initial Qty: ${Number(qty||0)}`;
+      if (url) previewImg.src = url;
+    }
+
+    // Generate QR for inventory page
+    function renderQR(link){
+      QRCode.toCanvas(qrCanvas, link, { width: 256, margin: 1 }, (err)=>{ if(err) console.error(err); });
+      prodLink.href = link; prodLink.textContent = link;
+      downloadQR.onclick = () => {
+        const a = document.createElement('a');
+        a.download = 'product-qr.png';
+        a.href = qrCanvas.toDataURL('image/png');
+        a.click();
+      };
+    }
+
+    prodForm.addEventListener("submit", async (e)=>{
+      e.preventDefault();
+      if (!isAdmin) { toast("Admin only."); return; }
+
+      const pid = pidEl.value.trim();
+      const name = nameEl.value.trim();
+      const sku  = skuEl.value.trim();
+      const qty  = Number(qtyEl.value || 0);
+      const loc  = locEl.value.trim();
+      const file = photoFileEl.files && photoFileEl.files[0] ? photoFileEl.files[0] : null;
+      const urlIn = photoUrlEl.value.trim();
+
+      if (!pid || !name) { toast("Product ID and Name are required."); return; }
+      statusEl.textContent = "Saving…";
+
+      try {
+        // 1) Upload image if provided (one image per product, overwrite)
+        let photoUrl = urlIn || "";
+        if (file) {
+          const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+          const cleanExt = (['jpg','jpeg','png','webp'].includes(ext) ? ext : 'jpg');
+          const objectPath = `product_images/${pid}.${cleanExt}`;
+          const objectRef = sRef(storage, objectPath);
+          await uploadBytes(objectRef, file, { contentType: file.type || `image/${cleanExt}` });
+          photoUrl = await getDownloadURL(objectRef);
+        }
+
+        // 2) Create/overwrite product in RTDB
+        const now = serverTimestamp();
+        await update(ref(db, `products/${pid}`), {
+          name, sku, quantity: qty, location: loc,
+          photoUrl: photoUrl || null,
+          createdAt: now, createdBy: auth.currentUser.uid,
+          updatedAt: now, updatedBy: auth.currentUser.uid
+        });
+
+        // 3) Show result + QR
+        const base = `${location.origin}${location.pathname}`.replace(/admin\.html.*$/,'');
+        const itemUrl = `${base}inventory.html?id=${encodeURIComponent(pid)}`;
+        refreshPreview(pid, name, sku, loc, qty, photoUrl);
+        renderQR(itemUrl);
+        show(resultBox, true);
+        statusEl.textContent = "Saved.";
+      } catch (err) {
+        console.error(err);
+        statusEl.textContent = "";
+        toast("Save failed. Check permissions and network.");
+      }
+    });
+
+    // Live preview on inputs
+    [pidEl, nameEl, skuEl, qtyEl, locEl, photoUrlEl].forEach(el=>{
+      el.addEventListener('input', ()=>{
+        refreshPreview(pidEl.value, nameEl.value, skuEl.value, locEl.value, qtyEl.value, photoUrlEl.value);
+      });
+    });
+    photoFileEl.addEventListener('change', ()=>{
+      const f = photoFileEl.files && photoFileEl.files[0];
+      if (f) {
+        const reader = new FileReader();
+        reader.onload = e=> previewImg.src = e.target.result;
+        reader.readAsDataURL(f);
+      }
+    });
+  </script>
+</body>
+</html>
