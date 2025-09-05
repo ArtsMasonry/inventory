@@ -16,6 +16,7 @@
       <input id="email" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Email">
       <input id="pass" type="password" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Password">
       <button id="loginBtn" class="px-4 py-2 rounded bg-blue-600">Sign in</button>
+      <div id="toast" class="hidden mt-3 text-center text-sm"></div>
     </section>
 
     <!-- Product card -->
@@ -51,8 +52,6 @@
         <div class="mt-3">
           <input id="note" placeholder="Optional note" class="w-full px-3 py-2 rounded-xl bg-slate-800/70"/>
         </div>
-
-        <div id="toast" class="hidden mt-3 text-center text-sm"></div>
 
         <!-- History (audit log) -->
         <div class="mt-6">
@@ -101,8 +100,8 @@
     const $ = (x)=>document.getElementById(x);
     const show = (el, yes)=> el.classList.toggle("hidden", !yes);
     const q = (k,d=null)=> new URLSearchParams(location.search).get(k) || d;
-    const toastEl = $("toast");
-    const toast=(m)=>{toastEl.textContent=m; show(toastEl,true); setTimeout(()=>show(toastEl,false),3000);};
+    const toastEl = document.getElementById("toast") || document.createElement("div");
+    const toast=(m)=>{ toastEl.textContent=m; toastEl.className="mt-3 text-center text-sm"; show(toastEl,true); setTimeout(()=>show(toastEl,false),3000); };
 
     let pid = null, pending = 0;
 
@@ -160,13 +159,12 @@
       });
     }
 
-    // Full audit log (all transactions for this product)
+    // Full audit log for this product
     function loadHistory(id){
       onValue(query(ref(db,'transactions'), orderByChild('productId'), equalTo(id)), (snap)=>{
         const txns = [];
         snap.forEach(c => txns.push({ id: c.key, ...c.val() }));
-        // sort oldest -> newest, then render all (table is scrollable)
-        txns.sort((a,b) => (a.at || 0) - (b.at || 0));
+        txns.sort((a,b) => (a.at || 0) - (b.at || 0)); // oldest -> newest
         historyBody.innerHTML = txns.map(t => {
           const when = t.at ? new Date(t.at).toLocaleString() : '';
           const who  = t.byEmail || t.by || '';
@@ -189,31 +187,31 @@
     // Pending logic
     minusBtn.onclick = () => { pending -= 1; renderPending(); };
     plusBtn.onclick  = () => { pending += 1; renderPending(); };
-
     cancelBtn.onclick = () => { pending = 0; renderPending(); };
 
-    // Submit: record starting/ending qty, user, and delta
+    // Submit: atomic qty update + compliant transaction (includes required 'type')
     submitBtn.onclick = async () => {
       if (!pending) return;
       const delta = pending;
       pending = 0; renderPending();
 
       try {
-        const uid = auth.currentUser.uid;
+        const uid   = auth.currentUser.uid;
         const email = auth.currentUser.email || uid;
 
-        // Compute start/end atomically and update product
+        // Atomically compute starting & ending qty and apply it
         let startVal = null, endVal = null;
         await runTransaction(ref(db,`products/${pid}/quantity`), q => {
           startVal = q || 0;
-          endVal = startVal + delta;
+          endVal   = startVal + delta;
           return endVal;
         });
 
-        // Write a transaction row with full audit fields
+        // Write transaction row with all required/desired fields
         const txnRef = push(ref(db,'transactions'));
         await update(txnRef, {
           productId: pid,
+          type: delta > 0 ? 'add' : 'remove',  // REQUIRED by rules
           delta,
           by: uid,
           byEmail: email,
