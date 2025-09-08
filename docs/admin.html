@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Admin — Create Product (Diagnoser)</title>
+  <title>Admin — Create Product</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
@@ -13,11 +13,6 @@
       <div id="authBar"></div>
       <div id="roleBadge" class="px-2 py-1 rounded bg-slate-800/70">Role: —</div>
     </header>
-
-    <!-- Quick env readout -->
-    <div class="text-[11px] opacity-70">
-      <div>Storage bucket (from config): <code id="bucketName">—</code></div>
-    </div>
 
     <!-- Auth -->
     <section id="login" class="space-y-3">
@@ -46,7 +41,7 @@
             <div>
               <label class="text-xs opacity-70">Product ID (auto from name)</label>
               <input id="pid" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="auto-generated" required>
-              <div class="text-[11px] opacity-60 mt-1">You may tweak it if needed.</div>
+              <div class="text-[11px] opacity-60 mt-1">We’ll make this from the name. You can tweak it.</div>
             </div>
             <button id="regenBtn" type="button" class="px-3 py-2 rounded bg-slate-800">Regenerate</button>
           </div>
@@ -108,15 +103,8 @@
           </div>
 
           <div class="mt-3 text-[11px] opacity-70">
-            Print the QR and place it above the pallet. Workers scan it to open the item page.
+            Print the QR and place it above the pallet.
           </div>
-        </div>
-
-        <!-- DEBUG PANEL -->
-        <div id="debugPanel" class="mt-4 rounded-xl bg-slate-900/60 p-3 text-xs">
-          <div class="font-semibold mb-1">Debug</div>
-          <pre id="debugLog" class="whitespace-pre-wrap"></pre>
-          <div id="errorBox" class="hidden mt-2 p-2 rounded bg-rose-900/30 text-rose-200"></div>
         </div>
       </div>
     </section>
@@ -127,222 +115,94 @@
     import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
     import { getDatabase, ref, get, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
     import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+    import "https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js";
 
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAy8uJsjPrdHKp60afCtnTdYGLHoYTEHyc",
       authDomain: "artsinventorymachine.firebaseapp.com",
       databaseURL: "https://artsinventorymachine-default-rtdb.firebaseio.com",
       projectId: "artsinventorymachine",
-      storageBucket: "artsinventorymachine.firebasestorage.app",
       messagingSenderId: "1003904050464",
       appId: "1:1003904050464:web:5a35989900fbdc5fa72345",
       measurementId: "G-BEJKKJK9H5"
     };
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
     const storage = getStorage(app);
 
     // UI helpers
-    const $ = (x)=>document.getElementById(x);
-    const show = (el, yes)=> el.classList.toggle("hidden", !yes);
-    const toastEl = $("toast");
-    const toast=(m)=>{ toastEl.textContent=m; toastEl.classList.remove("hidden"); setTimeout(()=>toastEl.classList.add("hidden"), 3000); };
+    const $=(x)=>document.getElementById(x);
+    const show=(el,yes)=>el.classList.toggle("hidden",!yes);
+    const toastEl=$("toast"); const toast=m=>{toastEl.textContent=m;toastEl.classList.remove("hidden");setTimeout(()=>toastEl.classList.add("hidden"),3e3);};
 
-    const loginSec = $("login");
-    const adminPanel = $("adminPanel");
-    const authBar = $("authBar");
-    const roleBadge = $("roleBadge");
-    const bucketNameEl = $("bucketName"); bucketNameEl.textContent = firebaseConfig.storageBucket;
+    const loginSec=$("login"), adminPanel=$("adminPanel"), authBar=$("authBar"), roleBadge=$("roleBadge");
+    const emailEl=$("email"), passEl=$("pass"), loginBtn=$("loginBtn");
+    const nameEl=$("name"), pidEl=$("pid"), regenBtn=$("regenBtn");
+    const qtyEl=$("quantity"), locEl=$("location");
+    const photoFileEl=$("photoFile"), photoUrlEl=$("photoUrl");
+    const prodForm=$("prodForm"), statusEl=$("status");
+    const resultBox=$("result"), prodLink=$("prodLink"), qrCanvas=$("qrCanvas"), downloadQR=$("downloadQR");
+    const previewImg=$("previewImg"), previewName=$("previewName"), previewLoc=$("previewLoc"), previewQty=$("previewQty"), previewPid=$("previewPid");
 
-    const emailEl = $("email"), passEl = $("pass"), loginBtn = $("loginBtn");
-    const nameEl = $("name"), pidEl = $("pid"), regenBtn = $("regenBtn");
-    const qtyEl = $("quantity"), locEl = $("location");
-    const photoFileEl = $("photoFile"), photoUrlEl = $("photoUrl");
-    const prodForm = $("prodForm"), statusEl = $("status");
-    const resultBox = $("result"), prodLink = $("prodLink"), qrCanvas = $("qrCanvas"), downloadQR = $("downloadQR");
-    const previewImg = $("previewImg"), previewName = $("previewName"), previewLoc = $("previewLoc"), previewQty = $("previewQty"), previewPid = $("previewPid");
-    const debugLog = $("debugLog"), errorBox = $("errorBox");
+    let isAdmin=false;
 
-    function log(s){ debugLog.textContent += s + "\\n"; }
-    function showError(step, e){
-      const msg = (e && (e.message || e.code)) ? `${e.code || ''} ${e.message || ''}`.trim() : String(e);
-      errorBox.textContent = `Step: ${step} — ${msg}`;
-      errorBox.classList.remove("hidden");
-      console.error(step, e);
-    }
-
-    let isAdmin = false;
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        authBar.innerHTML = "";
-        roleBadge.textContent = "Role: none";
-        roleBadge.className = "px-2 py-1 rounded bg-amber-700/30";
-        show(loginSec, true); show(adminPanel, false);
-        return;
+    onAuthStateChanged(auth, async (user)=>{
+      if(!user){
+        authBar.innerHTML=""; roleBadge.textContent="Role: none"; roleBadge.className="px-2 py-1 rounded bg-amber-700/30";
+        show(loginSec,true); show(adminPanel,false); return;
       }
-      authBar.innerHTML = `Signed in as <b>${user.email}</b> — <button id="logout" class="underline">Sign out</button>`;
-      document.getElementById("logout").onclick = () => signOut(auth);
+      authBar.innerHTML=`Signed in as <b>${user.email}</b> — <button id="logout" class="underline">Sign out</button>`;
+      document.getElementById("logout").onclick=()=>signOut(auth);
 
-      try {
-        log("Checking role …");
-        const roleSnap = await get(ref(db, `roles/${user.uid}/role`));
-        const roleVal = roleSnap.val();
-        log(`Role value: ${roleVal}`);
-        isAdmin = roleVal === "admin";
-        if (!isAdmin) {
-          roleBadge.textContent = `Role: ${roleVal || 'none'} (no admin)`;
-          roleBadge.className = "px-2 py-1 rounded bg-amber-700/30";
-          toast("You must be admin to create products.");
-          show(loginSec, false); show(adminPanel, false);
-          return;
-        }
-        roleBadge.textContent = "Role: admin";
-        roleBadge.className = "px-2 py-1 rounded bg-sky-700/30";
-        show(loginSec, false); show(adminPanel, true);
-      } catch (e) {
-        showError("role-check", e);
+      const roleSnap=await get(ref(db,`roles/${user.uid}/role`));
+      isAdmin = roleSnap.val()==="admin";
+      if(!isAdmin){
+        roleBadge.textContent=`Role: ${roleSnap.val()||'none'} (no admin)`; roleBadge.className="px-2 py-1 rounded bg-amber-700/30";
+        show(loginSec,false); show(adminPanel,false); toast("Admin only."); return;
       }
+      roleBadge.textContent="Role: admin"; roleBadge.className="px-2 py-1 rounded bg-sky-700/30";
+      show(loginSec,false); show(adminPanel,true);
     });
 
-    loginBtn.onclick = async () => {
-      try {
-        await signInWithEmailAndPassword(auth, emailEl.value.trim(), passEl.value.trim());
-      } catch(e) {
-        showError("sign-in", e);
-        toast(e.code || "Sign-in failed");
-      }
-    };
+    loginBtn.onclick=async()=>{ try{ await signInWithEmailAndPassword(auth,emailEl.value.trim(),passEl.value.trim()); } catch(e){ toast(e.code||"Sign-in failed"); } };
 
-    // Slugify Name -> ID
-    function slugify(s){
-      return (s || "")
-        .toLowerCase()
-        .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .replace(/--+/g,'-')
-        .slice(0, 60);
+    // Slugify -> ID
+    function slugify(s){ return (s||"").toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').replace(/--+/g,'-').slice(0,60); }
+    let pidTouched=false;
+    function refreshPreview(){ const name=nameEl.value.trim(), pid=pidEl.value.trim(), loc=locEl.value.trim(), qty=Number(qtyEl.value||0);
+      previewName.textContent=name||""; previewLoc.textContent=loc?`Location: ${loc}`:""; previewQty.textContent=`Initial Qty: ${qty}`; previewPid.textContent=pid?`ID: ${pid}`:"";
+      const url=photoUrlEl.value.trim(); if(url) previewImg.src=url;
     }
+    nameEl.addEventListener('input',()=>{ if(!pidTouched) pidEl.value=slugify(nameEl.value); refreshPreview(); });
+    pidEl.addEventListener('input',()=>{ pidTouched=true; refreshPreview(); });
+    regenBtn.addEventListener('click',()=>{ pidEl.value=slugify(nameEl.value); pidTouched=false; refreshPreview(); });
+    [qtyEl,locEl,photoUrlEl].forEach(el=>el.addEventListener('input',refreshPreview));
+    photoFileEl.addEventListener('change',()=>{ const f=photoFileEl.files?.[0]; if(f){ const r=new FileReader(); r.onload=e=>previewImg.src=e.target.result; r.readAsDataURL(f);} });
 
-    // Live PID suggestion as name changes
-    let pidTouched = false;
-    nameEl.addEventListener('input', ()=>{
-      const s = slugify(nameEl.value);
-      if (!pidTouched) pidEl.value = s;
-      refreshPreview();
-    });
-    pidEl.addEventListener('input', ()=>{ pidTouched = true; refreshPreview(); });
-    $("regenBtn").addEventListener('click', ()=>{ pidEl.value = slugify(nameEl.value); pidTouched = false; refreshPreview(); });
+    async function uniquePid(base){ let n=0; while(n<50){ const cand=n===0?base:`${base}-${n+1}`; const snap=await get(ref(db,`products/${cand}`)); if(!snap.exists()) return cand; n++; } throw new Error("ID collision"); }
 
-    function refreshPreview(){
-      const name = nameEl.value.trim();
-      const pid = pidEl.value.trim();
-      const loc = locEl.value.trim();
-      const qty = Number(qtyEl.value || 0);
-      previewName.textContent = name || "";
-      previewLoc.textContent  = loc ? `Location: ${loc}` : "";
-      previewQty.textContent  = `Initial Qty: ${qty}`;
-      previewPid.textContent  = pid ? `ID: ${pid}` : "";
-      const url = photoUrlEl.value.trim();
-      if (url) previewImg.src = url;
-    }
+    function renderQR(link){ QRCode.toCanvas(qrCanvas,link,{width:256,margin:1},()=>{}); prodLink.href=link; prodLink.textContent=link;
+      downloadQR.onclick=()=>{ const a=document.createElement('a'); a.download='product-qr.png'; a.href=qrCanvas.toDataURL('image/png'); a.click(); }; }
 
-    function renderQR(link){
-      QRCode.toCanvas(qrCanvas, link, { width: 256, margin: 1 }, (err)=>{ if(err) console.error(err); });
-      prodLink.href = link; prodLink.textContent = link;
-      downloadQR.onclick = () => {
-        const a = document.createElement('a');
-        a.download = 'product-qr.png';
-        a.href = qrCanvas.toDataURL('image/png');
-        a.click();
-      };
-    }
+    prodForm.addEventListener("submit", async e=>{
+      e.preventDefault(); if(!isAdmin){ toast("Admin only."); return; }
+      const name=nameEl.value.trim(); if(!name){ toast("Name is required."); return; }
+      statusEl.textContent="Saving…";
+      try{
+        const pid=await uniquePid(slugify(pidEl.value.trim()||name)); pidEl.value=pid;
 
-    async function uniquePid(base){
-      let n = 0;
-      while (n < 50) {
-        const cand = n === 0 ? base : `${base}-${n+1}`;
-        const snap = await get(ref(db, `products/${cand}`));
-        if (!snap.exists()) return cand;
-        n++;
-      }
-      throw new Error('uniquePid: too many collisions');
-    }
+        // Image upload if provided
+        const file=photoFileEl.files?.[0]||null; let photoUrl=(photoUrlEl.value||"").trim();
+        if(file){ const ext=(file.name.split('.').pop()||'jpg').toLowerCase(); const clean=['jpg','jpeg','png','webp'].includes(ext)?ext:'jpg';
+          const refObj=sRef(storage,`product_images/${pid}.${clean}`); await uploadBytes(refObj,file,{contentType:file.type||`image/${clean}`}); photoUrl=await getDownloadURL(refObj); }
 
-    prodForm.addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      errorBox.classList.add("hidden");
-      statusEl.textContent = "Saving…";
-      log("Submit clicked");
+        const now=serverTimestamp();
+        await update(ref(db,`products/${pid}`), { name, quantity:Number(qtyEl.value||0), location:(locEl.value||"").trim(), photoUrl:photoUrl||null, createdAt:now, createdBy:auth.currentUser.uid, updatedAt:now, updatedBy:auth.currentUser.uid });
 
-      if (!isAdmin) { showError("precheck", new Error("not admin")); statusEl.textContent = ""; return; }
-
-      const name = nameEl.value.trim();
-      const pidIn = (pidEl.value.trim() || slugify(name));
-      const basePid = slugify(pidIn || name);
-      const qty  = Number(qtyEl.value || 0);
-      const loc  = locEl.value.trim();
-      const file = photoFileEl.files && photoFileEl.files[0] ? photoFileEl.files[0] : null;
-      const urlIn = photoUrlEl.value.trim();
-
-      if (!name) { showError("validation", new Error("Name required")); statusEl.textContent = ""; return; }
-
-      try {
-        log("Choosing unique product ID …");
-        const pid = await uniquePid(basePid);
-        pidEl.value = pid;
-        log(`ID selected: ${pid}`);
-
-        let photoUrl = urlIn || "";
-        if (file) {
-          try {
-            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-            const cleanExt = (['jpg','jpeg','png','webp'].includes(ext) ? ext : 'jpg');
-            const objectPath = `product_images/${pid}.${cleanExt}`;
-            const objectRef = sRef(storage, objectPath);
-            log(`Uploading image to: ${objectPath}`);
-            await uploadBytes(objectRef, file, { contentType: file.type || `image/${cleanExt}` });
-            photoUrl = await getDownloadURL(objectRef);
-            log("Image uploaded, downloadURL obtained");
-          } catch (uploadErr) {
-            showError("storage-upload", uploadErr);
-            statusEl.textContent = "";
-            return;
-          }
-        } else {
-          log("No file chosen; using Photo URL (if any)");
-        }
-
-        try {
-          log("Writing product to Realtime Database …");
-          const now = serverTimestamp();
-          await update(ref(db, `products/${pid}`), {
-            name, quantity: qty, location: loc,
-            photoUrl: photoUrl || null,
-            createdAt: now, createdBy: auth.currentUser.uid,
-            updatedAt: now, updatedBy: auth.currentUser.uid
-          });
-          log("DB write success");
-        } catch (dbErr) {
-          showError("db-write", dbErr);
-          statusEl.textContent = "";
-          return;
-        }
-
-        const base = `${location.origin}${location.pathname}`.replace(/admin\.html.*$/,'');
-        const itemUrl = `${base}inventory.html?id=${encodeURIComponent(pid)}`;
-        renderQR(itemUrl);
-        refreshPreview();
-        show(resultBox, true);
-        statusEl.textContent = "Saved.";
-      } catch (e2) {
-        showError("outer-submit", e2);
-        statusEl.textContent = "";
-      }
+        const base=`${location.origin}${location.pathname}`.replace(/admin\\.html.*$/,''); const itemUrl=`${base}inventory.html?id=${encodeURIComponent(pid)}`;
+        refreshPreview(); renderQR(itemUrl); document.getElementById('result').classList.remove('hidden'); statusEl.textContent="Saved.";
+      }catch(err){ console.error(err); statusEl.textContent=""; toast(err.code||err.message||"Save failed. Check rules/network."); }
     });
   </script>
 </body>
