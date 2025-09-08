@@ -2,70 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Inventory</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-slate-950 text-slate-100">
-  <main class="max-w-xl mx-auto p-3 sm:p-4 space-y-4">
-    <div id="authBar" class="flex items-center justify-between text-xs sm:text-sm opacity-80"></div>
+  <main class="max-w-xl mx-auto p-4 space-y-4">
+    <header class="flex items-center justify-between text-xs opacity-80">
+      <div id="authBar"></div>
+    </header>
 
-    <!-- Sign-in -->
+    <!-- Auth -->
     <section id="login" class="space-y-2">
       <h2 class="text-lg font-semibold">Sign in</h2>
       <input id="email" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Email" autocomplete="username">
       <input id="pass" type="password" class="w-full px-3 py-2 rounded bg-slate-800" placeholder="Password" autocomplete="current-password">
-      <button id="loginBtn" class="w-full sm:w-auto px-4 py-2 rounded bg-blue-600">Sign in</button>
-      <div id="toast" class="hidden mt-3 text-center text-sm"></div>
+      <div class="flex gap-2">
+        <button id="loginBtn" class="px-4 py-2 rounded bg-blue-600">Sign in</button>
+        <button id="signupBtn" class="px-4 py-2 rounded bg-slate-700">Create account</button>
+      </div>
+      <div id="authMsg" class="text-sm text-rose-300 hidden"></div>
     </section>
 
-    <!-- Product card -->
+    <!-- Product -->
     <section id="product" class="hidden">
-      <div class="rounded-2xl bg-slate-900/60 p-3 sm:p-4">
+      <div class="rounded-2xl bg-slate-900/60 p-4">
         <div class="flex items-start gap-3">
-          <img id="photo" class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover bg-slate-800" alt=""/>
-          <div class="min-w-0">
-            <h1 id="name" class="text-lg sm:text-xl font-semibold truncate"></h1>
-            <div id="sku" class="text-xs opacity-70 truncate"></div>
-            <div id="location" class="text-xs opacity-70 truncate"></div>
+          <img id="photo" class="w-20 h-20 rounded-xl object-cover bg-slate-800" alt=""/>
+          <div>
+            <h1 id="name" class="text-xl font-semibold"></h1>
+            <div id="location" class="text-xs opacity-70"></div>
           </div>
         </div>
 
-        <div class="mt-3 sm:mt-4 text-center">
-          <div class="text-[10px] sm:text-xs uppercase tracking-wider opacity-70">On Hand</div>
-          <div id="qty" class="text-5xl sm:text-6xl font-bold my-2">–</div>
+        <div class="mt-4 text-center">
+          <div class="text-xs uppercase tracking-wider opacity-70">On Hand</div>
+          <div id="qty" class="text-5xl font-bold my-2">–</div>
         </div>
 
-        <!-- Adjustment controls -->
-        <div class="mt-2 sm:mt-3 flex items-center justify-center gap-3 sm:gap-4">
-          <button id="minusBtn" class="text-3xl w-24 h-24 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 active:scale-95">−</button>
-          <button id="plusBtn"  class="text-3xl w-24 h-24 sm:w-20 sm:h-20 rounded-2xl bg-slate-800 active:scale-95">+</button>
+        <!-- +/- -->
+        <div class="mt-3 flex items-center justify-center gap-4">
+          <button id="minusBtn" class="text-3xl w-20 h-20 rounded-2xl bg-slate-800">−</button>
+          <button id="plusBtn"  class="text-3xl w-20 h-20 rounded-2xl bg-slate-800">+</button>
         </div>
 
         <!-- Pending + Submit/Cancel -->
-        <div class="mt-3 flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
+        <div class="mt-3 flex items-center justify-center gap-3">
           <span id="pendingBadge" class="px-3 py-1 rounded-full text-sm bg-slate-800/70 hidden">Pending 0</span>
-          <div class="flex gap-2">
-            <button id="submitBtn" class="px-4 py-2 rounded-xl bg-blue-600 disabled:opacity-40" disabled>Submit</button>
-            <button id="cancelBtn" class="px-4 py-2 rounded-xl bg-slate-700 disabled:opacity-40" disabled>Cancel</button>
-          </div>
+          <button id="submitBtn" class="px-4 py-2 rounded-xl bg-blue-600 disabled:opacity-40" disabled>Submit</button>
+          <button id="cancelBtn" class="px-4 py-2 rounded-xl bg-slate-700 disabled:opacity-40" disabled>Cancel</button>
         </div>
 
         <div class="mt-3">
-          <input id="note" placeholder="Optional note" class="w-full px-3 py-2 rounded-xl bg-slate-800/70"/>
+          <input id="note" placeholder="Optional note (job / reason)" class="w-full px-3 py-2 rounded-xl bg-slate-800/70"/>
         </div>
 
-        <!-- History (tiles) -->
-        <div class="mt-5">
-          <button id="toggleHistory" class="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-900/70">
-            <span class="text-sm font-semibold">History</span>
-            <span id="chev" class="text-xs opacity-70">Show</span>
-          </button>
+        <div id="toast" class="hidden mt-3 text-center text-sm"></div>
 
-          <div id="historyWrap" class="hidden mt-2">
-            <div id="historyEmpty" class="hidden p-3 text-xs opacity-70">No history yet.</div>
-            <div id="historyTiles" class="space-y-2"></div>
-          </div>
+        <!-- History -->
+        <div class="mt-5">
+          <div class="text-sm font-semibold mb-2">History</div>
+          <div id="history" class="space-y-2"></div>
         </div>
       </div>
     </section>
@@ -73,21 +70,18 @@
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-    import { getDatabase, ref, onValue, runTransaction, push, update, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
+    import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+    import { getDatabase, ref, onValue, runTransaction, push, update, serverTimestamp, query, orderByChild, equalTo } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-database.js";
 
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyAy8uJsjPrdHKp60afCtnTdYGLHoYTEHyc",
       authDomain: "artsinventorymachine.firebaseapp.com",
       databaseURL: "https://artsinventorymachine-default-rtdb.firebaseio.com",
       projectId: "artsinventorymachine",
-      storageBucket: "artsinventorymachine.firebasestorage.app",
       messagingSenderId: "1003904050464",
       appId: "1:1003904050464:web:5a35989900fbdc5fa72345",
       measurementId: "G-BEJKKJK9H5"
     };
-
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
@@ -96,189 +90,110 @@
     const $ = (x)=>document.getElementById(x);
     const show = (el, yes)=> el.classList.toggle("hidden", !yes);
     const q = (k,d=null)=> new URLSearchParams(location.search).get(k) || d;
-    const toastEl = document.getElementById("toast") || document.createElement("div");
-    const toast=(m)=>{ toastEl.textContent=m; toastEl.className="mt-3 text-center text-sm"; show(toastEl,true); setTimeout(()=>show(toastEl,false),3000); };
+    const toastEl = $("toast");
+    const toast=(m)=>{ toastEl.textContent=m; toastEl.classList.remove("hidden"); setTimeout(()=>toastEl.classList.add("hidden"),3000); };
+    const esc = s => (s||"").replace(/[&<>"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
 
-    let pid = null, pending = 0;
+    // Elements
+    const loginSec=$("login"), prodSec=$("product"), authBar=$("authBar");
+    const nameEl=$("name"), locEl=$("location"), qtyEl=$("qty"), photoEl=$("photo");
+    const minusBtn=$("minusBtn"), plusBtn=$("plusBtn"), noteEl=$("note");
+    const pendingBadge=$("pendingBadge"), submitBtn=$("submitBtn"), cancelBtn=$("cancelBtn");
+    const histEl=$("history"), authMsg=$("authMsg");
 
-    const loginSec = $("login"), prodSec = $("product"), authBar = $("authBar");
-    const nameEl = $("name"), skuEl = $("sku"), locEl = $("location"), qtyEl = $("qty"), photoEl = $("photo");
-    const minusBtn = $("minusBtn"), plusBtn = $("plusBtn"), noteEl = $("note");
-    const pendingBadge = $("pendingBadge"), submitBtn = $("submitBtn"), cancelBtn = $("cancelBtn");
+    let pid=null, pending=0, liveQty=0;
 
-    // History UI
-    const toggleHistoryBtn = $("toggleHistory"), historyWrap = $("historyWrap"), chev = $("chev");
-    const historyTiles = $("historyTiles"), historyEmpty = $("historyEmpty");
-
-    // Collapsible history toggle
-    toggleHistoryBtn?.addEventListener("click", () => {
-      const open = historyWrap.classList.contains("hidden");
-      if (open) { historyWrap.classList.remove("hidden"); chev.textContent = "Hide"; }
-      else { historyWrap.classList.add("hidden"); chev.textContent = "Show"; }
-    });
-
-    function renderPending() {
-      if (pending === 0) {
+    function renderPending(){
+      if(pending===0){
         pendingBadge.classList.add("hidden");
-        submitBtn.disabled = true;
-        cancelBtn.disabled = true;
-        pendingBadge.textContent = "Pending 0";
-      } else {
+        submitBtn.disabled=true; cancelBtn.disabled=true;
+      }else{
         pendingBadge.classList.remove("hidden");
-        submitBtn.disabled = false;
-        cancelBtn.disabled = false;
-        const sign = pending > 0 ? "+" : "";
-        pendingBadge.textContent = `Pending ${sign}${pending}`;
+        submitBtn.disabled=false; cancelBtn.disabled=false;
+        pendingBadge.textContent = `Pending ${pending>0?'+':''}${pending}`;
       }
     }
 
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) { authBar.innerHTML = ""; show(loginSec, true); show(prodSec, false); return; }
+    onAuthStateChanged(auth, (user)=>{
+      if(!user){ authBar.innerHTML=""; show(loginSec,true); show(prodSec,false); return; }
       authBar.innerHTML = `Signed in as <b>${user.email}</b> — <button id="logout" class="underline">Sign out</button>`;
       document.getElementById("logout").onclick = () => signOut(auth);
-      show(loginSec, false);
+      show(loginSec,false);
 
       pid = q("id") || "prod_demo";
       bindProduct(pid);
-      subscribeHistoryTiles(pid);  // tiles renderer
+      loadHistory(pid);
       renderPending();
-      show(prodSec, true);
+      show(prodSec,true);
     });
 
+    // Login / Signup
     $("loginBtn").onclick = async () => {
-      try {
-        await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value.trim());
-      } catch(e) {
-        toast(`Sign-in failed: ${e.code}`);
-      }
+      try { await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value.trim()); authMsg.classList.add("hidden"); }
+      catch(e){ authMsg.textContent=e.code || "Sign-in failed"; authMsg.classList.remove("hidden"); }
+    };
+    $("signupBtn").onclick = async () => {
+      try { await createUserWithEmailAndPassword(auth, $("email").value.trim(), $("pass").value.trim()); authMsg.classList.add("hidden"); }
+      catch(e){ authMsg.textContent=e.code || "Sign-up failed"; authMsg.classList.remove("hidden"); }
     };
 
     function bindProduct(id){
-      onValue(ref(db, `products/${id}`), (snap) => {
-        if (!snap.exists()) { nameEl.textContent = "Not found"; return; }
-        const p = snap.val();
+      onValue(ref(db, `products/${id}`), (snap)=>{
+        if(!snap.exists()){ nameEl.textContent="Not found"; return; }
+        const p=snap.val();
         nameEl.textContent = p.name || "(unnamed)";
-        skuEl.textContent = p.sku ? `SKU: ${p.sku}` : "";
         locEl.textContent = p.location ? `Location: ${p.location}` : "";
         photoEl.src = p.photoUrl || ""; photoEl.alt = p.name || "";
-        qtyEl.textContent = p.quantity ?? 0;
+        liveQty = Number(p.quantity||0);
+        qtyEl.textContent = liveQty;
       });
     }
 
-    // Tiles history: read all /transactions, filter by productId, newest first
-    function subscribeHistoryTiles(id){
-      onValue(ref(db,'transactions'), (snap)=>{
-        const txns = [];
-        snap.forEach(c => {
-          const t = { id: c.key, ...c.val() };
-          if (t.productId === id) txns.push(t);
-        });
-        txns.sort((a,b) => (b.at || 0) - (a.at || 0)); // NEWEST first
-        if (txns.length === 0) {
-          historyTiles.innerHTML = "";
-          historyEmpty.classList.remove("hidden");
-          return;
-        }
-        historyEmpty.classList.add("hidden");
-        historyTiles.innerHTML = txns.map(t => tileHTML(t)).join('');
-      }, (err)=>{
-        console.error("history listener error:", err);
-        historyTiles.innerHTML = "";
-        historyEmpty.classList.remove("hidden");
-        historyEmpty.textContent = "History unavailable.";
+    function loadHistory(id){
+      onValue(query(ref(db,'transactions'), orderByChild('productId'), equalTo(id)), (snap)=>{
+        const rows=[]; snap.forEach(s=>rows.push({id:s.key, ...s.val()}));
+        rows.sort((a,b)=>(b.at||0)-(a.at||0)); // newest first
+        histEl.innerHTML = rows.slice(0,50).map(t=>{
+          const when=t.at?new Date(t.at).toLocaleString():"";
+          const delta=t.delta>0?`+${t.delta}`:`${t.delta}`;
+          const uid=(t.by||"").slice(0,8);
+          const start=t.startQty ?? "–";
+          const end=t.endQty ?? "–";
+          const note=t.note?`<div class="mt-1 text-[11px] opacity-70">Note: ${esc(t.note)}</div>`:"";
+          return `<div class="rounded-lg bg-slate-900/70 p-3">
+              <div class="flex justify-between text-sm">
+                <div class="font-medium">${when}</div>
+                <div class="font-semibold ${t.delta>=0?'text-emerald-300':'text-rose-300'}">${delta}</div>
+              </div>
+              <div class="mt-1 grid grid-cols-2 gap-2 text-xs opacity-80">
+                <div><span class="opacity-60">User:</span> ${uid}</div>
+                <div><span class="opacity-60">Start:</span> ${start}</div>
+                <div><span class="opacity-60">End:</span> ${end}</div>
+              </div>
+              ${note}
+            </div>`;
+        }).join("");
       });
     }
 
-    // Render one history tile (card)
-    function tileHTML(t){
-      const when = t.at ? new Date(t.at).toLocaleString() : '';
-      const who  = t.byEmail || t.by || '';
-      const delta = Number(t.delta || 0);
-      const change = (delta > 0 ? `+${delta}` : `${delta}`);
-      const start = (t.startingQty ?? '');
-      const end   = (t.endingQty   ?? '');
-      const note  = t.note ? String(t.note) : '';
+    // Pending / Submit
+    minusBtn.onclick = ()=>{ pending-=1; renderPending(); };
+    plusBtn.onclick  = ()=>{ pending+=1; renderPending(); };
+    cancelBtn.onclick= ()=>{ pending=0; renderPending(); };
 
-      const badgeClass = delta >= 0 ? "bg-emerald-700/30 text-emerald-200" : "bg-rose-700/30 text-rose-200";
-
-      return `
-        <div class="rounded-xl bg-slate-900/50 p-3">
-          <div class="flex items-center justify-between gap-2">
-            <div class="text-xs opacity-80">${when}</div>
-            <span class="text-xs px-2 py-1 rounded-full ${badgeClass}">${change}</span>
-          </div>
-
-          <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-            <div class="opacity-70">User</div>
-            <div class="truncate">${who}</div>
-
-            <div class="opacity-70">Starting</div>
-            <div class="text-right">${start}</div>
-
-            <div class="opacity-70">Ending</div>
-            <div class="text-right font-semibold">${end}</div>
-          </div>
-
-          ${note ? `<div class="mt-2 text-xs opacity-80"><span class="opacity-70">Note:</span> ${escapeHTML(note)}</div>` : ``}
-        </div>
-      `;
-    }
-
-    // Basic HTML escape for notes
-    function escapeHTML(s){
-      return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
-
-    // Pending logic
-    minusBtn.onclick = () => { pending -= 1; renderPending(); };
-    plusBtn.onclick  = () => { pending += 1; renderPending(); };
-    cancelBtn.onclick = () => { pending = 0; renderPending(); };
-
-    // Submit: atomic qty update + compliant transaction
-    submitBtn.onclick = async () => {
-      if (!pending) return;
-      const delta = pending;
-      pending = 0; renderPending();
-
-      try {
-        const uid   = auth.currentUser.uid;
-        const email = auth.currentUser.email || uid;
-
-        // Atomically compute starting & ending qty and apply it
-        let startVal = null, endVal = null;
-        await runTransaction(ref(db,`products/${pid}/quantity`), q => {
-          startVal = q || 0;
-          endVal   = startVal + delta;
-          return endVal;
-        });
-
-        // Write transaction row
-        const txnRef = push(ref(db,'transactions'));
-        await update(txnRef, {
-          productId: pid,
-          type: delta > 0 ? 'add' : 'remove',
-          delta,
-          by: uid,
-          byEmail: email,
-          note: (noteEl.value || '').trim() || null,
-          at: serverTimestamp(),
-          startingQty: startVal,
-          endingQty: endVal
-        });
-
-        // Stamp product metadata
-        await update(ref(db,`products/${pid}`), {
-          updatedBy: uid,
-          updatedAt: serverTimestamp()
-        });
-
-        toast(`Saved ${delta > 0 ? '+' : ''}${delta}`);
-        noteEl.value = '';
-      } catch (e) {
-        console.error(e);
-        toast("Submit failed. Check connection.");
-        pending = delta; renderPending();
-      }
+    submitBtn.onclick = async ()=>{
+      if(!pending) return;
+      const delta=pending; pending=0; renderPending();
+      try{
+        const uid=auth.currentUser.uid;
+        const startQty=liveQty; const endQty=startQty+delta;
+        const txnRef=push(ref(db,'transactions'));
+        await update(txnRef,{ productId:pid, type:delta>0?'add':'remove', delta, by:uid, at:serverTimestamp(), startQty, endQty, note: noteEl.value.trim()||null });
+        await runTransaction(ref(db,`products/${pid}/quantity`), q=>(q||0)+delta);
+        await update(ref(db,`products/${pid}`), { updatedBy: uid, updatedAt: serverTimestamp() });
+        noteEl.value=''; 
+        toast(`Saved ${delta>0?'+':''}${delta}`);
+      }catch(e){ console.error(e); toast("Submit failed. Permissions/connection."); pending=delta; renderPending(); }
     };
   </script>
 </body>
