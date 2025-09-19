@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Leap – Feature Checklist</title>
+  <style>
+    body { background:#f6f8fb; margin:0; font-family:-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:#0f172a; }
+    .wrap { max-width:720px; margin:32px auto; padding:0 16px; }
+    .card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; box-shadow:0 4px 18px rgba(0,0,0,.06); overflow:hidden; }
+    .head { background:linear-gradient(135deg,#3b82f6,#06b6d4); color:#fff; padding:22px 18px; }
+    h1 { margin:0; font-size:22px; }
+    .muted { color:#6b7280; font-size:12px; }
+    .content { padding:20px 18px; }
+    .section-label { margin:16px 0 6px; font-size:12px; color:#6b7280; text-transform:uppercase; letter-spacing:.02em; }
+    .item { margin:10px 0; background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:12px 14px; }
+    label { cursor:pointer; font-size:15px; }
+    textarea { width:100%; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; font-size:15px; }
+    .actions { display:flex; gap:12px; align-items:center; margin-top:14px; }
+    .btn { border:0; padding:12px 16px; border-radius:10px; cursor:pointer; }
+    .btn-primary { background:#0ea5e9; color:#fff; }
+    .footer { text-align:center; margin-top:16px; color:#94a3b8; font-size:12px; }
+    .success { background:#ecfeff; border:1px solid #bae6fd; color:#0369a1; padding:10px 12px; border-radius:10px; margin:12px 0; display:none; }
+    .show { display:block; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <form id="leapForm" class="card" action="https://formspree.io/f/mjkenwqb" method="POST">
+      <div class="head">
+        <h1>Leap features you use</h1>
+        <div class="muted" id="whoLabel"></div>
+      </div>
+
+      <div class="content">
+        <div id="successMsg" class="success">Thanks — your answers were sent.</div>
+
+        <!-- SALES & CRM -->
+        <div class="section-label">SALES & CRM</div>
+        <div class="item"><label><input type="checkbox" name="features" value="Lead capture and pipeline (stages, sources)"> Lead capture and pipeline (stages, sources)</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Customer records with notes and attachments"> Customer records with notes and attachments</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Appointment scheduling and reminders"> Appointment scheduling and reminders</label></div>
+
+        <!-- PRICEBOOK & MEASUREMENTS -->
+        <div class="section-label">PRICEBOOK & MEASUREMENTS</div>
+        <div class="item"><label><input type="checkbox" name="features" value="Pricebook / catalog (items, assemblies, markups)"> Pricebook / catalog (items, assemblies, markups)</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Good–Better–Best pricing options"> Good–Better–Best pricing options</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Measurement integrations (roof/exterior measurements pulled in)"> Measurement integrations (roof/exterior measurements pulled in)</label></div>
+
+        <!-- ESTIMATING & PROPOSALS -->
+        <div class="section-label">ESTIMATING & PROPOSALS</div>
+        <div class="item"><label><input type="checkbox" name="features" value="Estimate builder with templates"> Estimate builder with templates</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Change orders / revised estimate versions"> Change orders / revised estimate versions</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Branded proposal (PDF or web link)"> Branded proposal (PDF or web link)</label></div>
+
+        <!-- CONTRACTS & SIGNATURES -->
+        <div class="section-label">CONTRACTS & SIGNATURES</div>
+        <div class="item"><label><input type="checkbox" name="features" value="Dynamic contracts (auto-fill from estimate/customer)"> Dynamic contracts (auto-fill from estimate/customer)</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Remote e-signature (Leap Secure Sign)"> Remote e-signature (Leap Secure Sign)</label></div>
+
+        <!-- PAYMENTS & FINANCING -->
+        <div class="section-label">PAYMENTS & FINANCING</div>
+        <div class="item"><label><input type="checkbox" name="features" value="Collect deposit / card / ACH through the app"> Collect deposit / card / ACH through the app</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Offer homeowner financing during the sale"> Offer homeowner financing during the sale</label></div>
+
+        <!-- PROJECT / JOB MANAGEMENT -->
+        <div class="section-label">PROJECT / JOB MANAGEMENT</div>
+        <div class="item"><label><input type="checkbox" name="features" value="Workflow stages / task assignments"> Workflow stages / task assignments</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Scheduling (crews, subs, calendar)"> Scheduling (crews, subs, calendar)</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Job costing (budget vs. actual)"> Job costing (budget vs. actual)</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Photo & file storage; customer portal"> Photo & file storage; customer portal</label></div>
+
+        <!-- INTEGRATIONS & REPORTING -->
+        <div class="section-label">INTEGRATIONS & REPORTING</div>
+        <div class="item"><label><input type="checkbox" name="features" value="QuickBooks sync"> QuickBooks sync</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Measurement partners"> Measurement partners</label></div>
+        <div class="item"><label><input type="checkbox" name="features" value="Dashboards / reports (win rate, cycle time, revenue)"> Dashboards / reports (win rate, cycle time, revenue)</label></div>
+
+        <!-- MOBILE -->
+        <div class="section-label">MOBILE</div>
+        <div class="item"><label><input type="checkbox" name="features" value="Field use on phone/tablet for estimates, photos, signatures"> Field use on phone/tablet for estimates, photos, signatures</label></div>
+
+        <div class="item" style="margin-top:14px;">
+          <label for="other">Other or notes</label>
+          <textarea id="other" name="other" rows="3" placeholder="Anything missing?"></textarea>
+        </div>
+
+        <!-- hidden fields -->
+        <input type="hidden" name="who" id="who" value="">
+        <input type="hidden" name="submittedAt" id="submittedAt" value="">
+        <input type="text" name="_gotcha" tabindex="-1" autocomplete="off" style="display:none">
+
+        <!-- optional redirect (filled by JS to current page ?thanks=1) -->
+        <input type="hidden" name="_next" id="_next" value="">
+
+        <div class="actions">
+          <button type="submit" class="btn btn-primary">Submit</button>
+          <span class="muted">No login. Takes 30 seconds.</span>
+        </div>
+      </div>
+    </form>
+    <div class="footer">Tip: share this link with <code>?who=Art</code> to tag the submission.</div>
+  </div>
+
+  <script>
+    // Pre-fill helper: ?who=Art
+    const p = new URLSearchParams(location.search);
+    const who = p.get("who") || "";
+    if (who) {
+      document.getElementById("who").value = who;
+      document.getElementById("whoLabel").textContent = "For: " + who;
+    }
+    // Timestamp + redirect
+    document.getElementById("submittedAt").value = new Date().toISOString();
+    document.getElementById("_next").value = location.origin + location.pathname + "?thanks=1";
+    // Show success banner after redirect
+    if (p.get("thanks") === "1") {
+      document.getElementById("successMsg").classList.add("show");
+    }
+  </script>
+</body>
+</html>
